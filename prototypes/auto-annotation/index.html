@@ -194,6 +194,49 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
 .log pre { margin: 0; padding: 8px 10px 10px; font-family: var(--mono); font-size: 12px; overflow-x: auto; color: #d6dbe7; border-top: 1px solid #3b4258; }
 .log .empty { color: var(--proto-muted); font-size: 13px; }
 
+
+/* app shell: icon rail + main column, as on app.frinks.ai */
+.shell { display: flex; flex: 1; min-height: 0; }
+.rail { width: 76px; flex: none; border-right: 1px solid var(--line-2); display: flex; flex-direction: column; align-items: center; gap: 14px; padding-block: 22px; color: var(--ink-2); }
+.rail .logo { margin-bottom: 36px; color: var(--ink); }
+.ri { width: 46px; height: 34px; border-radius: 6px; display: grid; place-items: center; position: relative; }
+.ri.on { background: #e5e7eb; }
+.ri em { position: absolute; left: 50px; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; font-style: normal; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 8px; border-radius: 3px; z-index: 3; display: none; }
+.ri:hover em { display: block; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.crumbs { display: flex; align-items: center; gap: 12px; padding: 22px 24px 8px; font-size: 14px; color: var(--ink-2); flex-wrap: wrap; }
+.crumbs b { font-weight: 600; color: var(--ink); }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 40px; padding: 28px 24px 4px 36px; }
+.filt { background: none; border: 0; padding: 4px 0; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--ink-2); }
+.filt sup { background: var(--primary); color: #fff; border-radius: 50%; width: 15px; height: 15px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; margin: -14px 0 0 2px; }
+table.dt { min-width: 960px; box-shadow: 0 1px 3px rgb(17 24 39 / 10%); }
+table.dt th { background: var(--primary); color: #fff; font-size: 15px; font-weight: 600; text-align: center; padding: 16px 10px; border-bottom: 0; position: relative; white-space: nowrap; }
+table.dt th + th::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; background: rgb(255 255 255 / 85%); }
+.hinfo { display: inline-grid; place-items: center; width: 14px; height: 14px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 9px; font-weight: 700; vertical-align: 1px; }
+table.dt td { padding: 9px 10px; font-size: 15px; }
+table.dt td.c { text-align: center; }
+table.dt td.muted { color: var(--muted); font-size: 13px; }
+.fcell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fcell .sub { font-weight: 500; font-size: 14px; }
+.fname { font-size: 14px; }
+.flinks { display: inline-flex; gap: 10px; margin-left: 4px; }
+.ul { background: none; border: 0; padding: 0; color: var(--primary); text-decoration: underline; font-size: 13px; white-space: nowrap; }
+.ul.off { color: #9ca3af; cursor: not-allowed; }
+.tw { background: none; border: 0; padding: 2px; display: grid; place-items: center; color: var(--ink); }
+.tw svg { transition: transform .12s; }
+.tw svg.rot { transform: rotate(90deg); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.cchip { font-size: 13px; font-weight: 500; border-radius: 6px; padding: 1px 8px; color: var(--c); background: color-mix(in srgb, var(--c) 18%, #fff); border: 1px solid color-mix(in srgb, var(--c) 45%, #fff); white-space: nowrap; }
+.cnt-ok { color: #16a34a; font-weight: 600; }
+.cnt-part { color: #ca8a04; font-weight: 600; }
+.menu button.danger { color: var(--err); }
+.dots { border: 0; background: none; width: 30px; height: 30px; border-radius: 6px; color: var(--muted); display: grid; place-items: center; }
+.dots:hover { background: #e5e7eb; }
+.hintline { margin: 0; padding: 14px 24px 0; color: var(--muted); }
+.dtw { padding-bottom: 230px; }
+.banner { margin: 16px 24px 0; }
+@media (max-width: 700px) { .rail { display: none; } .filters { gap: 8px 22px; padding-left: 24px; } }
+
 @media (max-width: 900px) {
   .grid, .pv { grid-template-columns: minmax(0, 1fr); }
   .side { border-right: 0; border-bottom: 1px solid var(--ink); }
@@ -266,7 +309,7 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
 
   // ---------- state ----------
   const fresh = () => ({
-    screen: 'datasets', menu: null, folderDone: false, folderRunning: false,
+    screen: 'datasets', menu: null, expanded: { ds: true, sub: true }, folderDone: false, folderRunning: false,
     tpl: { screw: null, conn: null, serial: null, scratch: null },
     draw: null, copyPick: false, openModule: 'mod_asm',
     cfg: { screw: { auto: false, rois: [] }, conn: { auto: false, rois: [] }, serial: { auto: false, rois: [] }, scratch: { auto: false, rois: [] } },
@@ -371,13 +414,19 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
   }
 
   // ---------- screens ----------
-  const SCREENS = [['datasets', 'Datasets'], ['templates', 'Annotate Templates'], ['configure', 'Configure'], ['preview', 'Preview']];
+  const SCREENS = [['datasets', 'Datasets & Annotations'], ['templates', 'Annotate Templates'], ['configure', 'Configure'], ['preview', 'Preview']];
   function renderNav() {
     $('#pnav').innerHTML = SCREENS.map(([k, n], i) =>
       `<button class="chip" data-a="goto" data-k="${k}" ${S.screen === k ? 'aria-current="step"' : ''}>${i + 1}. ${n}</button>`).join('');
   }
 
+  let rendering = false;
   function render() {
+    if (rendering) return;
+    rendering = true;
+    try { renderInner(); } finally { rendering = false; }
+  }
+  function renderInner() {
     renderNav();
     const app = $('#app');
     let h = '';
@@ -385,33 +434,57 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
     else if (S.screen === 'templates') h = viewTemplates();
     else if (S.screen === 'configure') h = viewConfigure();
     else h = viewPreview();
+    h = `<div class="shell">${rail()}<div class="main">${h}</div></div>`;
     if (S.loader) h += `<div class="loader" role="alert"><div><span class="spin"></span>${esc(S.loader.title)}<small>${esc(S.loader.sub)}</small></div></div>`;
     app.innerHTML = h;
     bindCanvas();
   }
 
   function viewDatasets() {
-    const status = S.folderRunning ? '<span class="tag run">Auto-annotating…</span>' : S.folderDone ? '<span class="tag ok">Auto-annotated</span>' : '<span class="tag idle">Not annotated</span>';
+    const ex = S.expanded;
+    const dots = id => `<button class="dots" aria-label="More actions for this folder" data-a="menu" data-k="${id}"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>`;
     const menu = id => S.menu === id ? `<ul class="menu" role="menu">
         <li><button role="menuitem" data-a="soon">Start Annotation</button></li>
         <li><button role="menuitem" class="hl" data-a="open-auto" data-k="${id}" title="Labels the rest of a folder from a few templates you draw. Review the previews before generating.">Configure Auto-Annotation</button></li>
-        <li><button role="menuitem" data-a="soon">View Images</button></li></ul>` : '';
+        <li><button role="menuitem" data-a="soon">Upload Images</button></li>
+        <li><button role="menuitem" data-a="soon">Rename Folder</button></li>
+        <li><button role="menuitem" data-a="soon" class="danger">Delete Folder</button></li></ul>` : '';
+    const chev = (k, open) => `<button class="tw" data-a="expand" data-k="${k}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" class="${open ? 'rot' : ''}"><path d="m9 6 6 6-6 6"/></svg></button>`;
+    const chips = ['Screw', 'Connector', 'Serial Number', 'Scratch'].map((n, i) => `<span class="cchip" style="--c:${['#2563eb', '#16a34a', '#9333ea', '#e11d48'][i]}">${n}</span>`).join('');
+    const ann = (a, n) => `<span class="${n && a === n ? 'cnt-ok' : 'cnt-part'}">${a}/${n}</span>`;
+    const b07 = S.folderDone ? 48 : 0;
+    const folder = (id, name, a, n, extra = '') => `<tr class="${S.menu === id ? 'sel' : ''}"><td></td><td></td>
+        <td><div class="fcell" style="padding-left:52px"><span class="fname">${name}</span>${extra}<span class="flinks"><button class="ul" data-a="soon">View Datasets</button><button class="ul ${n ? '' : 'off'}" data-a="${n ? 'soon' : 'empty'}">View Annotations</button></span></div></td>
+        <td></td><td class="c muted">—</td><td class="c">${ann(a, n)}</td><td class="c muted">4/10/2026</td><td class="c muted">7/10/2026</td>
+        <td class="menu-cell">${dots(id)}${menu(id)}</td></tr>`;
+    const th = (t, tip) => `<th><span>${t} <span class="hinfo" title="${tip}">i</span></span></th>`;
+    let rows = `<tr><td>Housing A</td><td class="c">Top 1</td><td><div class="fcell">${chev('ds', ex.ds)}<span>Line 2</span></div></td><td><div class="chips">${chips}</div></td><td class="c muted">—</td><td class="c">${ann(S.folderDone ? 96 : 48, 96)}</td><td class="c muted">21/9/2026</td><td class="c muted">7/10/2026</td><td></td></tr>`;
+    if (ex.ds) {
+      rows += `<tr><td></td><td></td><td><div class="fcell" style="padding-left:26px">${chev('sub', ex.sub)}<span class="sub">Week 40</span></div></td><td></td><td class="c muted">—</td><td class="c">${ann(S.folderDone ? 96 : 48, 96)}</td><td class="c muted">28/9/2026</td><td class="c muted">7/10/2026</td><td></td></tr>`;
+      if (ex.sub) {
+        rows += folder('b06', 'Batch 06', 48, 48);
+        rows += folder('b07', 'Batch 07', b07, 48, S.folderRunning ? '<span class="tag run">Auto-annotating…</span>' : S.folderDone ? '<span class="tag ok">Auto-annotated</span>' : '');
+        rows += folder('b08', 'Batch 08', 0, 0);
+      }
+    }
+    const filt = (n, c) => `<button class="filt" data-a="soon">${n}<sup>${c}</sup><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>`;
     return `
-      <div class="page-h"><div class="crumb">Projects / Housing A Inspection</div><h1>Annotation</h1></div>
-      ${S.folderDone ? `<div class="banner"><b>Batch 07: 48 of 48 images annotated automatically.</b><span>Open it with Start Annotation to review and correct the labels.</span></div>` : ''}
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Name</th><th>Camera config</th><th>Images</th><th>Annotated</th><th>Status</th><th><span class="sr" style="position:absolute;left:-9999px">Actions</span></th></tr></thead>
-        <tbody>
-          <tr><td><span class="lvl">Dataset</span>Line 2</td><td>Station 4 · Top camera</td><td>144</td><td>${S.folderDone ? 96 : 48}</td><td></td><td></td></tr>
-          <tr><td style="padding-left:28px"><span class="lvl">Sub-dataset</span>Week 40</td><td>Station 4 · Top camera</td><td>144</td><td>${S.folderDone ? 96 : 48}</td><td></td><td></td></tr>
-          <tr><td style="padding-left:48px"><span class="lvl">Folder</span>Batch 06</td><td>Station 4 · Top camera</td><td>48</td><td>48</td><td><span class="tag ok">Annotated by hand</span></td>
-            <td class="menu-cell"><button class="dots" aria-label="Actions for Batch 06" data-a="menu" data-k="b06">⋯</button>${menu('b06')}</td></tr>
-          <tr class="${S.menu === 'b07' ? 'sel' : ''}"><td style="padding-left:48px"><span class="lvl">Folder</span><b>Batch 07</b></td><td>Station 4 · Top camera</td><td>48</td><td>${S.folderDone ? 48 : 0}</td><td>${status}</td>
-            <td class="menu-cell"><button class="dots" aria-label="Actions for Batch 07" data-a="menu" data-k="b07">⋯</button>${menu('b07')}</td></tr>
-          <tr><td style="padding-left:48px"><span class="lvl">Folder</span>Batch 08</td><td>Station 4 · Top camera</td><td>0</td><td>0</td><td><span class="tag idle">Uploading</span></td>
-            <td class="menu-cell"><button class="dots" aria-label="Actions for Batch 08" data-a="menu" data-k="b08">⋯</button>${menu('b08')}</td></tr>
-        </tbody></table></div>
-      <div class="sec" style="border:0;padding:4px 24px 24px"><p>Open the <b>⋯</b> menu on <b>Batch 07</b> and choose <b>Configure Auto-Annotation</b> to start.</p></div>`;
+      <div class="crumbs"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg><span>›</span><span>Housing A Inspection</span><span>›</span><b>Datasets &amp; Annotations</b> <span class="info" style="width:15px;height:15px;font-size:9px" title="Every dataset for this project, grouped by variant and capture. Open a folder to annotate it.">i</span></div>
+      <div class="filters">${filt('Variant Name', 0)}${filt('Capture', 0)}${filt('Dataset Folder 1', 0)}${filt('Is Deleted', 1)}</div>
+      ${S.folderDone ? `<div class="banner"><b>Batch 07: 48 of 48 images annotated automatically.</b><span>Open it with View Annotations to review and correct the labels.</span></div>` : ''}
+      <p class="hintline">Open the <b>⋮</b> menu on <b>Batch 07</b> and choose <b>Configure Auto-Annotation</b> to start.</p>
+      <div class="tbl-wrap dtw"><table class="dt">
+        <thead><tr>${th('Variant', 'Product variant this dataset belongs to.')}${th('Capture', 'The capture (camera setup) the images come from.')}${th('Folder', 'Dataset, sub-dataset and folder.')}${th('Class coverage', 'Classes present in this dataset.')}${th('Recommended', 'Recommended number of images.')}${th('Annotated', 'Annotated images out of total.')}${th('Date created', 'When it was created.')}<th colspan="2"><span>Date modified <span class="hinfo" title="Last change.">i</span></span></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }
+
+  function rail() {
+    const ic = (d, label, on) => `<span class="ri ${on ? 'on' : ''}" title="${label}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${d}</svg><em>${label}</em></span>`;
+    return `<aside class="rail" aria-label="App navigation"><svg class="logo" width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 10V2h8M24 2h8v8M32 24v8h-8M10 32H2v-8"/><path d="M12 9h10M12 9v15M12 15h7" stroke-width="2"/></svg>
+      ${ic('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>', 'Settings')}
+      ${ic('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/>', 'Datasets & Annotations', true)}
+      ${ic('<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>', 'AI Models')}
+      ${ic('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', 'Inferencing')}</aside>`;
   }
 
   function header() {
@@ -611,7 +684,7 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
     S.menu = null; S.screen = 'templates';
     if (!S.visited++) {
       log('GET', `/dataset/allImages?folderId=${IDS.subDataSetId}&sortBy=file_name&sortOrder=asc`, 'Loads the folder images. The first one becomes the template image.');
-      log('GET', `/configurationImage/images?cameraConfigId=${IDS.cameraConfigId}&masterImage=1`, 'Finds the camera config\'s master image.');
+      log('GET', `/configurationImage/images?cameraConfigId=${IDS.cameraConfigId}&masterImage=1`, 'Finds the capture\'s master image (the API still calls a capture cameraConfig).');
       log('GET', `/cameraConfig/module-configuration?cameraConfigId=${IDS.cameraConfigId}`, 'Lists modules. Only assembly, ocr and segmentation are offered.', { configurations: MODULES.map(m => ({ id: m.id, name: m.name, moduleStoreId: m.type, classes: m.classes.map(c => ({ id: c, name: CLASSES[c].name })) })) });
       log('GET', `/annotation/configurations?folderId=${IDS.subDataSetId}`, 'Restores a saved setup. isLive reconnects to a running job.', { data: [] });
     }
@@ -625,6 +698,8 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
       S.draw = null; S.screen = k; render();
     },
     menu(k) { S.menu = S.menu === k ? null : k; render(); },
+    expand(k) { S.expanded[k] = !S.expanded[k]; render(); },
+    empty() { toast('No images available inside the selected folder.', 'err'); },
     soon() { S.menu = null; render(); toast('Not part of this prototype', 'warn'); },
     'open-auto'(k) {
       if (k === 'b08') { S.menu = null; render(); toast('No images available inside the selected folder.', 'err'); return; }
@@ -703,13 +778,13 @@ select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; paddi
     const r = S.cfg[el.dataset.c].rois.find(x => x.id === el.dataset.r);
     if (!r) return;
     r[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value;
-    render();
+    if (!rendering) setTimeout(render, 0);
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && (S.draw || S.menu)) { S.draw = null; S.menu = null; render(); } });
 
   function renderLog() {
     const ol = $('#log');
-    if (!S.log.length) { ol.innerHTML = '<li class="empty">Nothing yet. Start from the Datasets screen.</li>'; return; }
+    if (!S.log.length) { ol.innerHTML = '<li class="empty">Nothing yet. Start from the Datasets &amp; Annotations screen.</li>'; return; }
     ol.innerHTML = S.log.map(l => `<li><details><summary><span class="m ${l.method}">${l.method}</span><code>${esc(l.path)}</code><span class="why">${esc(l.why)}</span></summary>${l.body ? `<pre>${esc(JSON.stringify(l.body, null, 2))}</pre>` : ''}</details></li>`).join('');
   }
 
