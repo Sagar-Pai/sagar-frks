@@ -1,0 +1,341 @@
+<title>Search Area Hover Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap">
+<style>
+/* Layout: prototype strip on top, then a faithful mock of the Module Configuration screen
+   (image canvas | workflow | module panel). Single light theme on purpose: it mirrors the app. */
+:root {
+  color-scheme: light;
+  --bg: #e9eaec;
+  --surface: #ffffff;
+  --canvas: #f1f1f1;
+  --ink: #1d1f24;
+  --muted: #6b6f78;
+  --line: #dcdde1;
+  --brand: #ff4f0f;
+  --brand-soft: #fff1ea;
+  --rail: #1c1d21;
+  --sa-red: #ff2f6d;
+  --sa-green: #36e28a;
+  --sa-yellow: #f1e94a;
+  --sa-cyan: #3fd4ff;
+  --font: "Lexend", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; padding-inline: 16px; padding-block: 16px 32px; }
+button { font-family: inherit; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* ---- prototype strip ---- */
+.strip { max-width: 1280px; margin: 0 auto 14px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+.strip h1 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
+.strip p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 62ch; line-height: 1.5; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 7px 14px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+
+/* ---- app mock ---- */
+.app { max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: 48px 1fr; background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,30,.08), 0 8px 28px rgba(20,20,30,.08); }
+.rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 18px; padding-block: 16px; }
+.rail span { width: 18px; height: 18px; border: 1.5px solid #9a9ca3; border-radius: 4px; }
+.rail span:first-child { border-color: #fff; width: 22px; height: 22px; }
+.main { min-width: 0; display: flex; flex-direction: column; }
+.crumbs { font-size: 12px; color: var(--muted); padding: 12px 18px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; }
+.crumbs b { color: var(--ink); font-weight: 500; }
+.work { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, .8fr) 300px; min-height: 560px; }
+
+.stage { background: var(--canvas); border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: center; padding-block: 24px; min-width: 0; }
+.imgwrap { position: relative; width: 100%; aspect-ratio: 866 / 498; overflow: hidden; background: #0f2a26; }
+.imgwrap svg.board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage-hint { font-size: 12px; color: var(--muted); padding: 10px 14px 0; min-height: 28px; }
+
+/* search area boxes */
+.sa { position: absolute; border: 2px solid var(--c); opacity: 0; transition: opacity .16s ease, box-shadow .2s ease; pointer-events: none; }
+.sa .tag { position: absolute; left: -2px; bottom: 100%; white-space: nowrap; font: 600 12px/1 var(--font); color: #111; background: var(--c); padding: 3px 6px 2px; border-radius: 3px 3px 0 0; }
+.sa.near-top .tag { bottom: auto; top: 100%; border-radius: 0 0 3px 3px; }
+.sa.is-selected { opacity: 1; }
+.sa.is-ghost { opacity: .9; border-style: dashed; border-width: 1.5px; }
+.sa.is-ghost .tag { opacity: .75; }
+.sa.is-preview { opacity: 1; border-width: 2.5px; box-shadow: 0 0 0 9999px rgba(4, 12, 10, .55), 0 0 14px 2px var(--c); z-index: 3; }
+.sa.is-all { opacity: .95; pointer-events: auto; cursor: pointer; }
+.sa.is-all.is-preview { pointer-events: auto; }
+@keyframes pulse { 0% { outline: 2px solid var(--c); outline-offset: 0; } 100% { outline: 2px solid transparent; outline-offset: 10px; } }
+.sa.is-preview.pulse { animation: pulse .6s ease-out 1; }
+
+.flow { background: #f6f6f7; border-right: 1px solid var(--line); padding: 28px 16px; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.node { width: 100%; max-width: 230px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 12px; font-size: 12px; }
+.node small { display: block; color: var(--muted); font-size: 10px; margin-bottom: 6px; }
+.node .ok { color: #2fa84f; font-size: 11px; margin-top: 6px; display: block; }
+.node .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--brand); margin-right: 6px; vertical-align: 0; }
+.node.active { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+.arrow { width: 1.5px; height: 38px; background: var(--brand); position: relative; }
+.arrow::after { content: ""; position: absolute; bottom: -1px; left: -4px; border: 4.5px solid transparent; border-top: 6px solid var(--brand); border-bottom: 0; }
+
+.panel { padding: 0; display: flex; flex-direction: column; min-width: 0; }
+.panel header { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; font-size: 15px; font-weight: 500; }
+.panel header .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--brand); flex: none; }
+.tabs { display: flex; gap: 8px; font-size: 11px; padding: 0 14px 10px; border-bottom: 1px solid var(--line); color: var(--ink); flex-wrap: wrap; }
+.tabs b { font-weight: 600; }
+.field { padding: 18px 14px; }
+.field label { display: block; font-size: 13px; margin-bottom: 8px; }
+.select { position: relative; }
+.trigger { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 9px 12px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.trigger[aria-expanded="true"] { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.trigger .chev { margin-left: auto; color: var(--muted); font-size: 10px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--c); flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+.list { list-style: none; margin: 4px 0 0; padding: 4px 0; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); box-shadow: 0 6px 18px rgba(20,20,30,.1); }
+.opt { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; font-size: 13px; cursor: pointer; position: relative; }
+.opt .check { width: 14px; color: transparent; font-size: 12px; }
+.opt[aria-selected="true"] { background: var(--brand); color: #fff; font-weight: 600; }
+.opt[aria-selected="true"] .check { color: #fff; }
+.opt.hot:not([aria-selected="true"]) { background: var(--brand-soft); }
+.opt .eye { margin-left: auto; font-size: 11px; color: var(--muted); opacity: 0; transition: opacity .12s; }
+.opt.hot .eye { opacity: 1; }
+.opt[aria-selected="true"] .eye { color: #ffe3d6; }
+.mode-click .opt .eye { display: none; }
+.panel footer { margin-top: auto; display: flex; gap: 10px; justify-content: center; padding: 18px 14px; }
+.btn { border-radius: 4px; padding: 8px 22px; font-size: 13px; border: 1px solid var(--brand); background: var(--surface); color: var(--brand); }
+.btn.solid { background: var(--brand); color: #fff; }
+
+/* ---- notes ---- */
+.notes { max-width: 1280px; margin: 18px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.note h2 { font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+.note p { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+kbd { font-family: inherit; font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--ink); }
+
+@media (max-width: 1000px) {
+  .work { grid-template-columns: minmax(0, 1fr) 280px; }
+  .flow { display: none; }
+}
+@media (max-width: 680px) {
+  .app { grid-template-columns: 1fr; }
+  .rail { display: none; }
+  .work { grid-template-columns: 1fr; }
+  .stage { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sa { transition: none; }
+  .sa.is-preview.pulse { animation: none; }
+}
+</style>
+
+<div class="strip">
+  <div>
+    <h1>Hover to preview search areas</h1>
+    <p>Open <b>Base search area</b> and move the pointer over the options. Each search area lights up on the image before you pick it. Switch to <b>Current</b> to compare with today's click-to-see behaviour.</p>
+  </div>
+  <div class="seg" role="group" aria-label="Behaviour">
+    <button type="button" id="mode-click" aria-pressed="false">Current (click)</button>
+    <button type="button" id="mode-hover" aria-pressed="true">Proposed (hover)</button>
+  </div>
+</div>
+
+<div class="app">
+  <nav class="rail" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></nav>
+  <div class="main">
+    <div class="crumbs">Sagar Test › Recipe Management › variant 1 › 1 › <b>Module Configuration</b></div>
+    <div class="work" id="work">
+      <section class="stage" aria-label="Master image">
+        <div class="imgwrap" id="imgwrap">
+          <svg class="board" viewBox="0 0 866 498" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+              <filter id="softer"><feGaussianBlur stdDeviation="3"/></filter>
+              <radialGradient id="vig" cx="50%" cy="50%" r="70%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity=".45"/></radialGradient>
+            </defs>
+            <rect width="866" height="498" fill="#2c4a44"/>
+            <g filter="url(#softer)" fill="none" stroke="#3d5e57" stroke-width="16" stroke-linejoin="round">
+              <path d="M40 200 H200 V300 H330 V420 H480"/>
+              <path d="M430 170 H560 V260 H700 V200 H820"/>
+              <path d="M90 470 V360 H250"/>
+              <path d="M520 470 V380 H640 V300 H780 V470"/>
+              <path d="M330 250 H450 V330"/>
+              <path d="M760 120 V250"/>
+            </g>
+            <g filter="url(#softer)" fill="#1d3632">
+              <rect x="370" y="210" width="90" height="70" rx="10"/>
+              <rect x="560" y="320" width="60" height="110" rx="10"/>
+              <rect x="150" y="300" width="70" height="140" rx="12"/>
+              <rect x="430" y="300" width="16" height="70" rx="8"/>
+              <rect x="600" y="340" width="14" height="60" rx="7"/>
+              <rect x="760" y="330" width="40" height="120" rx="8"/>
+            </g>
+            <g filter="url(#soft)">
+              <rect x="165" y="40" width="500" height="85" rx="6" fill="#bff3e4"/>
+              <rect x="720" y="20" width="100" height="105" rx="6" fill="#c8f1e6" opacity=".85"/>
+              <circle cx="103" cy="110" r="24" fill="#b2533f" opacity=".75"/>
+              <ellipse cx="128" cy="255" rx="40" ry="33" fill="#d6ef55"/>
+              <circle cx="236" cy="386" r="20" fill="#b1622f" opacity=".7"/>
+              <circle cx="618" cy="202" r="10" fill="#4fb3a3"/>
+            </g>
+            <g fill="#14302b" opacity=".85">
+              <rect x="732" y="40" width="70" height="54"/>
+              <rect x="740" y="48" width="14" height="14" fill="#c8f1e6"/><rect x="780" y="48" width="14" height="14" fill="#c8f1e6"/>
+              <rect x="740" y="72" width="14" height="14" fill="#c8f1e6"/><rect x="762" y="60" width="10" height="10" fill="#c8f1e6"/>
+              <rect x="776" y="74" width="8" height="8" fill="#c8f1e6"/><rect x="788" y="68" width="6" height="16" fill="#c8f1e6"/>
+            </g>
+            <rect x="242" y="390" width="70" height="40" rx="4" fill="#9fb8b0" opacity=".35" filter="url(#softer)"/>
+            <rect width="866" height="498" fill="url(#vig)"/>
+          </svg>
+          <!-- search area boxes, positioned in % of the master image -->
+        </div>
+        <div class="stage-hint" id="hint" aria-live="polite"></div>
+      </section>
+
+      <section class="flow" aria-label="Inspection workflow">
+        <div class="node"><small>Master Image as main input to the workflow</small>Pi7_VBS512512A8116_1742637833…</div>
+        <div class="arrow"></div>
+        <div class="node"><span class="dot"></span>ODC_1<span class="ok">Configured module</span></div>
+        <div class="arrow"></div>
+        <div class="node"><span class="dot"></span>SA_1<span class="ok">Configured module</span></div>
+        <div class="arrow"></div>
+        <div class="node active"><span class="dot"></span>OCR_1<span class="ok">Configured module</span></div>
+      </section>
+
+      <aside class="panel" aria-label="Module configuration">
+        <header><span class="dot"></span>3. Optical Character Recognition</header>
+        <div class="tabs"><b>Module Inputs</b> › <span>Module Setup</span> › <span>Module Outputs</span></div>
+        <div class="field">
+          <label id="sa-label" for="sa-trigger">Base search area</label>
+          <div class="select" id="select">
+            <button type="button" class="trigger" id="sa-trigger" aria-haspopup="listbox" aria-expanded="true" aria-controls="sa-list">
+              <span class="swatch" id="trigger-swatch"></span><span id="trigger-text"></span><span class="chev">▲▼</span>
+            </button>
+            <ul class="list" id="sa-list" role="listbox" aria-labelledby="sa-label" tabindex="-1"></ul>
+          </div>
+        </div>
+        <footer><span class="btn">Exit</span><span class="btn solid">Next</span></footer>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="note"><h2>Hover previews, click commits</h2><p>Hovering an option spotlights that search area and dims the rest of the image. The saved selection stays visible as a dashed outline, so the user can compare the two. Moving off the list returns to the selection.</p></div>
+  <div class="note"><h2>Colour key in the list</h2><p>Each option carries a swatch in the same colour as its box on the image. The user can match list entries to areas at a glance.</p></div>
+  <div class="note"><h2>Keyboard and touch</h2><p><kbd>↑</kbd> <kbd>↓</kbd> move the preview, <kbd>Enter</kbd> selects, <kbd>Esc</kbd> closes. Touch screens have no hover, so a tap there still selects directly, which is today's behaviour.</p></div>
+</div>
+
+<script>
+(() => {
+  // Box geometry measured from the Module Configuration screenshots, as % of the master image.
+  const AREAS = [
+    { id: "sa5", name: "Search Area 5", color: "var(--sa-green)",  x: 20.4, y: 71.3, w: 27.1, h: 18.1 },
+    { id: "sa1", name: "Search Area 1", color: "var(--sa-red)",    x: 82.4, y: 4.0,  w: 11.8, h: 14.7 },
+    { id: "sa4", name: "Search Area 4", color: "var(--sa-yellow)", x: 48.4, y: 61.6, w: 11.5, h: 16.9 },
+    { id: "sa2", name: "Search Area 2", color: "var(--sa-cyan)",   x: 66.9, y: 35.5, w: 11.9, h: 20.3 },
+  ];
+
+  const state = { mode: "hover", selected: "sa1", preview: null, open: true, active: 1 };
+  const wrap = document.getElementById("imgwrap");
+  const list = document.getElementById("sa-list");
+  const trigger = document.getElementById("sa-trigger");
+  const hint = document.getElementById("hint");
+  const work = document.getElementById("work");
+  const boxes = {}, opts = {};
+
+  AREAS.forEach((a, i) => {
+    const b = document.createElement("div");
+    b.className = "sa" + (a.y < 8 ? " near-top" : "");
+    b.style.cssText = `--c:${a.color};left:${a.x}%;top:${a.y}%;width:${a.w}%;height:${a.h}%`;
+    b.innerHTML = `<span class="tag">${a.name}</span>`;
+    wrap.appendChild(b);
+    boxes[a.id] = b;
+
+    const li = document.createElement("li");
+    li.className = "opt"; li.id = "opt-" + a.id; li.role = "option";
+    li.style.setProperty("--c", a.color);
+    li.innerHTML = `<span class="check">✓</span><span class="swatch"></span><span>${a.name}</span><span class="eye">previewing</span>`;
+    li.addEventListener("mouseenter", () => { if (state.mode === "hover") setPreview(a.id, i); });
+    li.addEventListener("click", () => select(a.id));
+    list.appendChild(li);
+    opts[a.id] = li;
+  });
+
+  list.addEventListener("mouseleave", () => { if (state.mode === "hover") setPreview(null); });
+
+  function setPreview(id, idx) {
+    if (state.preview === id) return;
+    state.preview = id;
+    if (idx != null) state.active = idx;
+    render();
+    if (id) { const b = boxes[id]; b.classList.remove("pulse"); void b.offsetWidth; b.classList.add("pulse"); }
+  }
+
+  function select(id) {
+    state.selected = id; state.preview = null; state.open = false;
+    state.active = AREAS.findIndex(a => a.id === id);
+    render(); trigger.focus();
+  }
+
+  function render() {
+    const sel = AREAS.find(a => a.id === state.selected);
+    document.getElementById("trigger-text").textContent = sel.name;
+    document.getElementById("trigger-swatch").style.setProperty("--c", sel.color);
+    trigger.setAttribute("aria-expanded", String(state.open));
+    list.hidden = !state.open;
+    work.classList.toggle("mode-click", state.mode === "click");
+
+    const previewing = state.mode === "hover" && state.open && state.preview;
+    AREAS.forEach((a, i) => {
+      const b = boxes[a.id], o = opts[a.id];
+      const isSel = a.id === state.selected, isPrev = previewing && a.id === state.preview;
+      b.classList.toggle("is-preview", !!isPrev);
+      b.classList.toggle("is-selected", isSel && !previewing);
+      b.classList.toggle("is-ghost", isSel && previewing && !isPrev);
+      o.setAttribute("aria-selected", String(isSel));
+      o.classList.toggle("hot", !!(state.open && state.mode === "hover" && (isPrev || (i === state.active && previewing))));
+    });
+    if (state.open) list.setAttribute("aria-activedescendant", "opt-" + AREAS[state.active].id);
+
+    if (state.mode === "click") hint.textContent = "Current behaviour: only the selected search area is drawn. Pick another option to see where it is.";
+    else if (previewing) {
+      const p = AREAS.find(a => a.id === state.preview);
+      hint.textContent = p.id === state.selected ? `Previewing ${p.name} (current selection).` : `Previewing ${p.name}. Dashed outline shows the current selection, ${sel.name}. Click to select.`;
+    } else hint.textContent = state.open ? "Hover an option in Base search area to preview it on the image." : `${sel.name} selected.`;
+  }
+
+  trigger.addEventListener("click", () => {
+    state.open = !state.open; state.preview = null;
+    render(); if (state.open) list.focus();
+  });
+
+  function keys(e) {
+    if (!state.open) {
+      if (["ArrowDown", "ArrowUp"].includes(e.key)) { e.preventDefault(); state.open = true; render(); list.focus(); }
+      return;
+    }
+    const n = AREAS.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      state.active = (state.active + (e.key === "ArrowDown" ? 1 : n - 1)) % n;
+      if (state.mode === "hover") setPreview(AREAS[state.active].id, state.active);
+      else render();
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault(); select(AREAS[state.active].id);
+    } else if (e.key === "Escape") {
+      state.open = false; state.preview = null; render(); trigger.focus();
+    }
+  }
+  list.addEventListener("keydown", keys);
+  trigger.addEventListener("keydown", keys);
+
+  document.addEventListener("click", e => {
+    if (state.open && !document.getElementById("select").contains(e.target)) { state.open = false; state.preview = null; render(); }
+  });
+
+  const mClick = document.getElementById("mode-click"), mHover = document.getElementById("mode-hover");
+  function setMode(m) {
+    state.mode = m; state.preview = null;
+    mClick.setAttribute("aria-pressed", String(m === "click"));
+    mHover.setAttribute("aria-pressed", String(m === "hover"));
+    render();
+  }
+  mClick.addEventListener("click", () => setMode("click"));
+  mHover.addEventListener("click", () => setMode("hover"));
+
+  render();
+})();
+</script>
