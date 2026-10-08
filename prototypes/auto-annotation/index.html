@@ -1,0 +1,793 @@
+<title>Auto-Annotation Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a slim prototype bar, then the app screen (left settings column + right image canvas, as in frinksvision-frontend), then the request log. */
+:root {
+  color-scheme: light;
+  --primary: #ff4301;
+  --primary-soft: #fdece5;
+  --ink: #111827;
+  --ink-2: #374151;
+  --muted: #6b7280;
+  --line: #d1d5db;
+  --line-2: #e5e7eb;
+  --canvas: #eaedf1;
+  --surface: #ffffff;
+  --page: #f3f4f6;
+  --proto: #232838;
+  --proto-ink: #eef0f5;
+  --proto-muted: #a3abbd;
+  --ok: #15803d;
+  --ok-soft: #dcfce7;
+  --err: #b91c1c;
+  --warn-soft: #fef3c7;
+  --warn-ink: #92400e;
+  --font: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; padding-inline: 16px; padding-block: 16px 32px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.wrap { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+/* prototype chrome */
+.proto { background: var(--proto); color: var(--proto-ink); border-radius: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.proto b { font-weight: 600; }
+.proto .sub { color: var(--proto-muted); font-size: 13px; }
+.proto nav { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.chip { border: 1px solid #3b4258; background: transparent; color: var(--proto-muted); border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.chip[aria-current="step"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chip:hover:not([aria-current="step"]) { color: var(--proto-ink); border-color: var(--proto-muted); }
+
+/* app frame */
+.app { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-height: 720px; display: flex; flex-direction: column; position: relative; }
+.app-h { border-bottom: 1px solid #6b7280; padding: 20px 24px 14px; font-size: 26px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-wrap: balance; }
+.info { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--muted); color: var(--muted); font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; cursor: help; flex: none; }
+.grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); flex: 1; min-height: 0; }
+.side { border-right: 1px solid var(--ink); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.side-body { flex: 1; overflow: auto; max-height: 560px; }
+.side-foot { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 28px; border-top: 1px solid var(--line); padding: 14px 20px; }
+.stage { background: var(--canvas); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; gap: 10px; min-width: 0; }
+.stage-cap { font-size: 13px; color: var(--ink-2); align-self: stretch; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.imgbox { background: #fff; border-radius: 4px; width: 100%; max-width: 860px; overflow: hidden; }
+.imgbox svg { display: block; width: 100%; height: auto; touch-action: none; }
+.imgbox.drawing svg { cursor: crosshair; }
+.bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-top: 1px solid var(--line-2); padding: 12px 24px; }
+
+/* stepper */
+.stepper { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; border-bottom: 2px solid var(--line); }
+.st { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.st i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-style: normal; font-weight: 600; font-size: 12px; background: #fff; }
+.st.on { color: var(--ink); font-weight: 600; }
+.st.on i { border-color: var(--primary); color: var(--primary); }
+.st.done i { background: var(--primary); border-color: var(--primary); color: #fff; }
+.st-line { width: 36px; height: 2px; background: var(--line); }
+
+/* buttons */
+.btn { border: 1px solid transparent; border-radius: 6px; font-weight: 600; font-size: 14px; padding: 7px 18px; background: var(--primary); color: #fff; }
+.btn:hover { background: #ff5c22; }
+.btn.md { padding: 6px 12px; }
+.btn.border { background: transparent; border-color: var(--primary); color: var(--primary); }
+.btn.border:hover { background: var(--primary-soft); }
+.btn.ghost { background: #fff; border-color: var(--line); color: var(--ink-2); font-weight: 500; }
+.btn.ghost:hover { background: #f9fafb; }
+.btn.pill { border-radius: 999px; }
+.btn[disabled], .btn[aria-disabled="true"] { background: #e5e7eb; color: #6b7280; border-color: transparent; cursor: not-allowed; }
+.link { background: none; border: 0; padding: 0; color: var(--primary); font-weight: 500; }
+
+/* datasets table */
+.page-h { padding: 20px 24px 6px; }
+.crumb { color: var(--muted); font-size: 13px; }
+.page-h h1 { margin: 4px 0 0; font-size: 26px; font-weight: 700; }
+.tbl-wrap { overflow-x: auto; padding: 12px 24px 24px; }
+table { width: 100%; border-collapse: collapse; min-width: 640px; }
+th { text-align: left; font-weight: 600; font-size: 13px; color: var(--ink-2); background: #f9fafb; border-bottom: 1px solid var(--line); padding: 10px 12px; }
+td { border-bottom: 1px solid var(--line-2); padding: 10px 12px; font-variant-numeric: tabular-nums; vertical-align: middle; }
+tr.sel td { background: var(--primary-soft); }
+.lvl { color: var(--muted); font-size: 12px; display: block; }
+.tag { display: inline-block; font-size: 12px; border-radius: 999px; padding: 2px 10px; font-weight: 500; }
+.tag.ok { background: var(--ok-soft); color: var(--ok); }
+.tag.idle { background: #f3f4f6; color: var(--muted); }
+.tag.run { background: var(--warn-soft); color: var(--warn-ink); }
+.dots { border: 1px solid var(--line); background: #fff; border-radius: 6px; width: 32px; height: 28px; font-weight: 700; line-height: 1; }
+.menu-cell { position: relative; text-align: right; }
+.menu { position: absolute; right: 12px; top: 40px; z-index: 5; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(17 24 39 / 12%); min-width: 230px; text-align: left; padding: 4px 0; list-style: none; margin: 0; }
+.menu button { width: 100%; text-align: left; border: 0; background: none; padding: 8px 16px; }
+.menu button:hover { background: #f9fafb; }
+.menu button.hl { color: var(--primary); font-weight: 600; }
+
+/* template list */
+.sec { padding: 14px 20px; border-bottom: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 10px; }
+.sec h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.sec p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tpl { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 8px; }
+.tpl.armed { border-color: var(--primary); background: var(--primary-soft); }
+.sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.tpl .nm { flex: 1; min-width: 0; }
+.tpl .nm small { display: block; color: var(--muted); font-size: 12px; }
+.state-ok { color: var(--ok); font-size: 12px; font-weight: 600; }
+.state-no { color: var(--muted); font-size: 12px; }
+.mod-label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-top: 4px; }
+select.inp, input.inp { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; background: #fff; min-width: 0; }
+
+/* module cards */
+.mcard { margin: 14px 16px 0; border: 1px solid #9ca3af; border-radius: 8px; background: #fff; }
+.mcard-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; gap: 8px; width: 100%; background: none; border: 0; text-align: left; }
+.mcard-h .t { font-size: 18px; font-weight: 500; }
+.mcard-h .k { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+.chev { transition: transform .12s; color: var(--muted); }
+.chev.up { transform: rotate(180deg); }
+.mcard-b { padding: 4px 18px 14px; }
+.mcard-b > p { margin: 0 0 8px; }
+.cls { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.cls:last-child { border-bottom: 0; }
+.cls-h { display: flex; align-items: center; gap: 10px; padding: 4px 4px; }
+.cls-h span { font-size: 16px; }
+.toggle { width: 40px; height: 22px; border-radius: 999px; border: 0; background: #d1d5db; position: relative; padding: 0; flex: none; }
+.toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .12s; }
+.toggle[aria-pressed="true"] { background: var(--primary); }
+.toggle[aria-pressed="true"]::after { left: 21px; }
+.cls-b { padding: 4px 0 4px 26px; display: flex; flex-direction: column; gap: 8px; }
+.roi-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.btn-del { border: 1px solid #ef4444; color: #ef4444; background: #fff; border-radius: 999px; padding: 4px 14px; }
+.btn-del[disabled] { border-color: transparent; background: #e5e7eb; color: #6b7280; cursor: not-allowed; }
+.btn-add { border: 0; background: var(--primary); color: #fff; border-radius: 999px; padding: 4px 14px; }
+.roi { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.roi-h { display: flex; align-items: center; gap: 10px; }
+.roi-h b { font-weight: 600; color: var(--ink-2); }
+.roi-h .draw { margin-left: auto; }
+.roi-warn { font-size: 12px; color: var(--warn-ink); background: var(--warn-soft); border-radius: 6px; padding: 4px 8px; }
+.roi-armed { font-size: 12px; color: var(--primary); font-weight: 600; }
+.fld { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; padding-left: 18px; }
+.fld label { font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 4px; }
+.fld .info { width: 14px; height: 14px; font-size: 9px; }
+.chk { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+
+/* preview */
+.pv { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 9fr); flex: 1; min-height: 0; }
+.pv-list { border-right: 2px solid var(--line-2); display: flex; flex-direction: column; min-width: 0; }
+.pv-list h2 { margin: 0; padding: 14px 16px; border-bottom: 2px solid var(--line-2); font-size: 17px; font-weight: 600; }
+.thumbs { padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: auto; max-height: 560px; }
+.thumb { border: 2px solid transparent; border-radius: 6px; padding: 0; background: #fff; text-align: left; overflow: hidden; }
+.thumb[aria-current="true"] { border-color: var(--primary); }
+.thumb svg { display: block; width: 100%; height: auto; }
+.thumb span { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 6px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pv-main { display: flex; flex-direction: column; min-width: 0; }
+.pv-main .stage { flex: 1; }
+.findings { background: #fff; border-top: 1px solid var(--line-2); padding: 12px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 20px; }
+.finding { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.finding b { font-weight: 600; }
+.finding .n { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.note { font-size: 12px; color: var(--warn-ink); grid-column: 1 / -1; background: var(--warn-soft); border-radius: 6px; padding: 6px 10px; }
+.banner { margin: 12px 24px 0; background: var(--ok-soft); color: var(--ok); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.stale { background: var(--warn-soft); color: var(--warn-ink); border-radius: 6px; padding: 6px 10px; font-size: 12px; align-self: stretch; }
+
+/* loader + toast */
+.loader { position: absolute; inset: 0; background: rgb(255 255 255 / 86%); display: grid; place-items: center; z-index: 20; }
+.loader div { display: flex; flex-direction: column; align-items: center; gap: 14px; font-size: 18px; font-weight: 600; }
+.spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--primary-soft); border-top-color: var(--primary); animation: spin .9s linear infinite; }
+.loader small { font-size: 13px; color: var(--muted); font-weight: 400; font-family: var(--mono); }
+@keyframes spin { to { transform: rotate(360deg); } }
+#toasts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 50; width: max-content; max-width: calc(100vw - 32px); }
+.toast { background: #fff; border-radius: 8px; box-shadow: 0 6px 20px rgb(17 24 39 / 18%); padding: 10px 14px; font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.toast .ic { font-weight: 700; }
+.toast.ok .ic { color: var(--ok); }
+.toast.err .ic { color: var(--err); }
+.toast.warn .ic { color: #d97706; }
+
+/* request log */
+.log { background: var(--proto); color: var(--proto-ink); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.log-h { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.log-h b { font-weight: 600; }
+.log-h span { color: var(--proto-muted); font-size: 13px; }
+.log ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.log details { background: #2c3245; border-radius: 6px; }
+.log summary { padding: 7px 10px; cursor: pointer; display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.log summary code { font-family: var(--mono); min-width: 0; overflow-wrap: anywhere; }
+.m { font-family: var(--mono); font-weight: 700; min-width: 44px; }
+.m.GET { color: #7dd3fc; } .m.POST { color: #fdba74; } .m.PUT { color: #c4b5fd; } .m.SSE { color: #86efac; } .m.SAVE { color: #f9a8d4; }
+.log .why { color: var(--proto-muted); }
+.log pre { margin: 0; padding: 8px 10px 10px; font-family: var(--mono); font-size: 12px; overflow-x: auto; color: #d6dbe7; border-top: 1px solid #3b4258; }
+.log .empty { color: var(--proto-muted); font-size: 13px; }
+
+
+/* app shell: icon rail + main column, as on app.frinks.ai */
+.shell { display: flex; flex: 1; min-height: 0; }
+.rail { width: 76px; flex: none; border-right: 1px solid var(--line-2); display: flex; flex-direction: column; align-items: center; gap: 14px; padding-block: 22px; color: var(--ink-2); }
+.rail .logo { margin-bottom: 36px; color: var(--ink); }
+.ri { width: 46px; height: 34px; border-radius: 6px; display: grid; place-items: center; position: relative; }
+.ri.on { background: #e5e7eb; }
+.ri em { position: absolute; left: 50px; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; font-style: normal; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 8px; border-radius: 3px; z-index: 3; display: none; }
+.ri:hover em { display: block; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.crumbs { display: flex; align-items: center; gap: 12px; padding: 22px 24px 8px; font-size: 14px; color: var(--ink-2); flex-wrap: wrap; }
+.crumbs b { font-weight: 600; color: var(--ink); }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 40px; padding: 28px 24px 4px 36px; }
+.filt { background: none; border: 0; padding: 4px 0; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--ink-2); }
+.filt sup { background: var(--primary); color: #fff; border-radius: 50%; width: 15px; height: 15px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; margin: -14px 0 0 2px; }
+table.dt { min-width: 960px; box-shadow: 0 1px 3px rgb(17 24 39 / 10%); }
+table.dt th { background: var(--primary); color: #fff; font-size: 15px; font-weight: 600; text-align: center; padding: 16px 10px; border-bottom: 0; position: relative; white-space: nowrap; }
+table.dt th + th::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; background: rgb(255 255 255 / 85%); }
+.hinfo { display: inline-grid; place-items: center; width: 14px; height: 14px; border: 1.5px solid currentColor; border-radius: 50%; font-size: 9px; font-weight: 700; vertical-align: 1px; }
+table.dt td { padding: 9px 10px; font-size: 15px; }
+table.dt td.c { text-align: center; }
+table.dt td.muted { color: var(--muted); font-size: 13px; }
+.fcell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fcell .sub { font-weight: 500; font-size: 14px; }
+.fname { font-size: 14px; }
+.flinks { display: inline-flex; gap: 10px; margin-left: 4px; }
+.ul { background: none; border: 0; padding: 0; color: var(--primary); text-decoration: underline; font-size: 13px; white-space: nowrap; }
+.ul.off { color: #9ca3af; cursor: not-allowed; }
+.tw { background: none; border: 0; padding: 2px; display: grid; place-items: center; color: var(--ink); }
+.tw svg { transition: transform .12s; }
+.tw svg.rot { transform: rotate(90deg); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.cchip { font-size: 13px; font-weight: 500; border-radius: 6px; padding: 1px 8px; color: var(--c); background: color-mix(in srgb, var(--c) 18%, #fff); border: 1px solid color-mix(in srgb, var(--c) 45%, #fff); white-space: nowrap; }
+.cnt-ok { color: #16a34a; font-weight: 600; }
+.cnt-part { color: #ca8a04; font-weight: 600; }
+.menu button.danger { color: var(--err); }
+.dots { border: 0; background: none; width: 30px; height: 30px; border-radius: 6px; color: var(--muted); display: grid; place-items: center; }
+.dots:hover { background: #e5e7eb; }
+.hintline { margin: 0; padding: 14px 24px 0; color: var(--muted); }
+.dtw { padding-bottom: 230px; }
+.banner { margin: 16px 24px 0; }
+@media (max-width: 700px) { .rail { display: none; } .filters { gap: 8px 22px; padding-left: 24px; } }
+
+@media (max-width: 900px) {
+  .grid, .pv { grid-template-columns: minmax(0, 1fr); }
+  .side { border-right: 0; border-bottom: 1px solid var(--ink); }
+  .side-body, .thumbs { max-height: none; }
+  .thumbs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-h { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } .toggle::after, .chev { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div class="proto">
+    <div><b>Auto-annotation prototype</b> <span class="sub">· mirrors frinksvision-frontend /configure-auto-annotation · sample data</span></div>
+    <nav id="pnav" aria-label="Prototype screens"></nav>
+    <button class="chip" data-a="reset">Reset</button>
+  </div>
+  <div class="app" id="app"></div>
+  <div class="log">
+    <div class="log-h"><b>Requests this flow sends</b><span>Each click in the app adds the backend call the real screen makes. Expand one to see its body.</span></div>
+    <ol id="log"></ol>
+  </div>
+</div>
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const W = 640, H = 400;
+  const IDS = { projectId: 'prj_housing_a', cameraConfigId: 'cc_st4_top', datasetId: 'ds_line2', folderId: 'fld_week40', subDataSetId: 'fld_batch07' };
+
+  const MODULES = [
+    { id: 'mod_asm', name: 'Assembly Check', type: 'assembly', tag: 'ODC', classes: ['screw', 'conn'] },
+    { id: 'mod_ocr', name: 'Serial Number OCR', type: 'ocr', tag: 'OCR', classes: ['serial'] },
+    { id: 'mod_seg', name: 'Surface Defects', type: 'segmentation', tag: 'SEG', classes: ['scratch'] },
+  ];
+  const CLASSES = {
+    screw:   { name: 'Screw',         color: '#2563eb', mod: 'mod_asm' },
+    conn:    { name: 'Connector',     color: '#16a34a', mod: 'mod_asm' },
+    serial:  { name: 'Serial Number', color: '#9333ea', mod: 'mod_ocr' },
+    scratch: { name: 'Scratch',       color: '#e11d48', mod: 'mod_seg' },
+  };
+  const modOf = c => MODULES.find(m => m.id === CLASSES[c].mod);
+
+  // Sample images in folder "Batch 07". Offsets simulate the part shifting on the fixture.
+  const IMAGES = [
+    { id: 'IMG_0412', dx: 0,   dy: 0,  sn: '4X7-2219' },
+    { id: 'IMG_0413', dx: 8,   dy: -6, sn: '4X7-2220', weak: 2, scratch: true },
+    { id: 'IMG_0414', dx: -10, dy: 4,  sn: '4X7-2221', missing: 3 },
+    { id: 'IMG_0415', dx: 5,   dy: 9,  sn: '4X7-2222' },
+    { id: 'IMG_0416', dx: -6,  dy: -8, sn: '4X7-2223', scratch: true },
+    { id: 'IMG_0417', dx: 30,  dy: 18, sn: '4X7-2224', blur: true },
+  ];
+  const SCREWS = [[110, 80], [530, 80], [110, 320], [530, 320]];
+
+  function objectsFor(img, i) {
+    const o = [];
+    SCREWS.forEach(([x, y], k) => {
+      if (img.missing === k) return;
+      const s = img.weak === k ? 0.12 : 0.8 + ((k * 7 + i * 3) % 10) / 60;
+      o.push({ id: img.id + '_s' + k, cls: 'screw', box: [x + img.dx - 16, y + img.dy - 16, 32, 32], score: +s.toFixed(2) });
+    });
+    o.push({ id: img.id + '_c', cls: 'conn', box: [270 + img.dx, 150 + img.dy, 100, 50], score: 0.91 });
+    o.push({ id: img.id + '_l', cls: 'serial', box: [392 + img.dx, 232 + img.dy, 116, 46], score: img.blur ? 0.86 : 0.95, text: 'SN ' + img.sn });
+    if (img.scratch) o.push({ id: img.id + '_x', cls: 'scratch', box: [178 + img.dx, 232 + img.dy, 76, 30], score: 0.78, path: scratchPath(img) });
+    return o;
+  }
+  function scratchPath(img) {
+    const p = [[182, 258], [200, 248], [222, 244], [238, 238], [250, 236]];
+    return p.map(([x, y]) => [x + img.dx, y + img.dy]);
+  }
+
+  // ---------- state ----------
+  const fresh = () => ({
+    screen: 'datasets', menu: null, expanded: { ds: true, sub: true }, folderDone: false, folderRunning: false,
+    tpl: { screw: null, conn: null, serial: null, scratch: null },
+    draw: null, copyPick: false, openModule: 'mod_asm',
+    cfg: { screw: { auto: false, rois: [] }, conn: { auto: false, rois: [] }, serial: { auto: false, rois: [] }, scratch: { auto: false, rois: [] } },
+    sel: {}, previews: null, previewSig: '', previewIdx: 0, loader: null, log: [], visited: 0,
+  });
+  let S = fresh();
+  let roiSeq = 0;
+
+  // ---------- helpers ----------
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const quad = ([x, y, w, h]) => [x, y, x + w, y, x + w, y + h, x, y + h].map(Math.round);
+  const xyxy = ([x, y, w, h]) => [x, y, x + w, y + h].map(Math.round);
+  const inside = ([px, py], [x, y, w, h]) => px >= x && px <= x + w && py >= y && py <= y + h;
+  const center = ([x, y, w, h]) => [x + w / 2, y + h / 2];
+
+  function toast(msg, kind = 'ok') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + kind;
+    el.innerHTML = `<span class="ic">${kind === 'ok' ? '✓' : kind === 'err' ? '✕' : '!'}</span><span>${esc(msg)}</span>`;
+    $('#toasts').appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+  }
+  function log(method, path, why, body) {
+    S.log.unshift({ method, path, why, body });
+    renderLog();
+  }
+
+  // ---------- part image ----------
+  function partSVG(img, uid) {
+    const { dx, dy } = img;
+    let s = `<defs><linearGradient id="mt${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d4d8de"/><stop offset=".55" stop-color="#b5bbc4"/><stop offset="1" stop-color="#9ea5af"/></linearGradient>${img.blur ? `<filter id="bl${uid}"><feGaussianBlur stdDeviation="1.1"/></filter>` : ''}</defs>`;
+    s += `<rect width="${W}" height="${H}" fill="#2a2e35"/>`;
+    for (let x = -40; x < W; x += 40) s += `<rect x="${x + (dx % 40)}" y="0" width="2" height="${H}" fill="#33383f"/>`;
+    s += `<g ${img.blur ? `filter="url(#bl${uid})"` : ''}>`;
+    s += `<rect x="${80 + dx}" y="${50 + dy}" width="480" height="300" rx="10" fill="url(#mt${uid})" stroke="#7c848f" stroke-width="2"/>`;
+    s += `<rect x="${150 + dx}" y="${110 + dy}" width="340" height="180" rx="6" fill="none" stroke="#8d949e" stroke-width="1.5"/>`;
+    [[180, 300], [460, 120], [320, 270]].forEach(([x, y]) => s += `<circle cx="${x + dx}" cy="${y + dy}" r="6" fill="#80878f"/>`);
+    SCREWS.forEach(([x, y], k) => {
+      if (img.missing === k) { s += `<circle cx="${x + dx}" cy="${y + dy}" r="8" fill="#5b6169"/>`; return; }
+      const dirty = img.weak === k;
+      s += `<circle cx="${x + dx}" cy="${y + dy}" r="13" fill="${dirty ? '#8f8a7e' : '#e3e6ea'}" stroke="#646b74" stroke-width="2"/>`;
+      s += `<path d="M${x + dx - 7} ${y + dy}h14M${x + dx} ${y + dy - 7}v14" stroke="#555c65" stroke-width="2.4"/>`;
+      if (dirty) s += `<ellipse cx="${x + dx + 4}" cy="${y + dy - 3}" rx="9" ry="6" fill="#6f6857" opacity=".75"/>`;
+    });
+    s += `<rect x="${270 + dx}" y="${150 + dy}" width="100" height="50" rx="3" fill="#1f2328"/>`;
+    for (let k = 0; k < 8; k++) s += `<rect x="${280 + dx + k * 11}" y="${160 + dy}" width="6" height="12" fill="#c9a24a"/>`;
+    s += `<rect x="${278 + dx}" y="${182 + dy}" width="84" height="8" fill="#2e3339"/>`;
+    s += `<rect x="${392 + dx}" y="${232 + dy}" width="116" height="46" rx="2" fill="#f7f7f5" stroke="#b9bcc0"/>`;
+    s += `<text x="${400 + dx}" y="${249 + dy}" font-family="ui-monospace,Menlo,monospace" font-size="11" fill="#1f2328">SN ${img.sn}</text>`;
+    for (let k = 0; k < 26; k++) s += `<rect x="${400 + dx + k * 3.8}" y="${256 + dy}" width="${k % 3 ? 1.4 : 2.4}" height="15" fill="#1f2328"/>`;
+    if (img.scratch) s += `<polyline points="${scratchPath(img).map(p => p.join(',')).join(' ')}" fill="none" stroke="#f5f7fa" stroke-width="2" opacity=".9"/>`;
+    s += `</g>`;
+    return s;
+  }
+
+  function labelBox(box, color, text, opts = {}) {
+    const [x, y, w, h] = box;
+    const dash = opts.dash ? 'stroke-dasharray="7 5"' : '';
+    let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${opts.fill ? color : 'none'}" fill-opacity="${opts.fill ? .22 : 0}" stroke="${color}" stroke-width="${opts.thin ? 1.5 : 2.2}" ${dash}/>`;
+    if (text) {
+      const tw = Math.min(text.length * 6.1 + 10, 260);
+      const ty = y - 17 < 0 ? y + h : y - 17;
+      s += `<rect x="${x}" y="${ty}" width="${tw}" height="16" fill="${color}"/><text x="${x + 5}" y="${ty + 12}" font-family="Outfit,system-ui,sans-serif" font-size="11" fill="#fff">${esc(text)}</text>`;
+    }
+    return s;
+  }
+
+  // ---------- detection ----------
+  function detect(img, i, cfg, tpl) {
+    const objs = objectsFor(img, i);
+    const dets = [], notes = {}, used = new Set();
+    for (const c of Object.keys(cfg)) {
+      const cc = cfg[c];
+      if (!cc.auto) continue;
+      const type = modOf(c).type;
+      notes[c] = { found: 0, capped: 0, low: [], outside: 0 };
+      const inAny = new Set();
+      for (const roi of cc.rois) {
+        if (!roi.box) continue;
+        if (type !== 'ocr' && (!roi.template || !tpl[c])) continue;
+        let cands = objs.filter(o => o.cls === c && !used.has(o.id) && inside(center(o.box), roi.box));
+        cands.forEach(o => inAny.add(o.id));
+        cands = cands.map(o => ({ ...o, score: type !== 'ocr' && roi.modelType === 'NCC' && c === 'screw' ? +(o.score * 0.82).toFixed(2) : o.score }));
+        let keep;
+        if (type === 'ocr') {
+          keep = cands.filter(o => o.score >= +roi.textThresh).map(o => ({ ...o, read: o.score >= +roi.recogThresh ? o.text : '???' }));
+          cands.filter(o => o.score < +roi.textThresh).forEach(o => notes[c].low.push(o.score));
+        } else {
+          const ok = cands.filter(o => o.score >= +roi.threshold).sort((a, b) => b.score - a.score);
+          cands.filter(o => o.score < +roi.threshold).forEach(o => notes[c].low.push(o.score));
+          const n = Math.max(1, parseInt(roi.maxNum, 10) || 1);
+          keep = ok.slice(0, n);
+          notes[c].capped += ok.length - keep.length;
+        }
+        keep.forEach(o => { used.add(o.id); dets.push({ ...o, roi: roi.name }); });
+        notes[c].found += keep.length;
+      }
+      notes[c].outside = objs.filter(o => o.cls === c && !inAny.has(o.id)).length;
+    }
+    return { dets, notes };
+  }
+
+  // ---------- screens ----------
+  const SCREENS = [['datasets', 'Datasets & Annotations'], ['templates', 'Annotate Templates'], ['configure', 'Configure'], ['preview', 'Preview']];
+  function renderNav() {
+    $('#pnav').innerHTML = SCREENS.map(([k, n], i) =>
+      `<button class="chip" data-a="goto" data-k="${k}" ${S.screen === k ? 'aria-current="step"' : ''}>${i + 1}. ${n}</button>`).join('');
+  }
+
+  let rendering = false;
+  function render() {
+    if (rendering) return;
+    rendering = true;
+    try { renderInner(); } finally { rendering = false; }
+  }
+  function renderInner() {
+    renderNav();
+    const app = $('#app');
+    let h = '';
+    if (S.screen === 'datasets') h = viewDatasets();
+    else if (S.screen === 'templates') h = viewTemplates();
+    else if (S.screen === 'configure') h = viewConfigure();
+    else h = viewPreview();
+    h = `<div class="shell">${rail()}<div class="main">${h}</div></div>`;
+    if (S.loader) h += `<div class="loader" role="alert"><div><span class="spin"></span>${esc(S.loader.title)}<small>${esc(S.loader.sub)}</small></div></div>`;
+    app.innerHTML = h;
+    bindCanvas();
+  }
+
+  function viewDatasets() {
+    const ex = S.expanded;
+    const dots = id => `<button class="dots" aria-label="More actions for this folder" data-a="menu" data-k="${id}"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg></button>`;
+    const menu = id => S.menu === id ? `<ul class="menu" role="menu">
+        <li><button role="menuitem" data-a="soon">Start Annotation</button></li>
+        <li><button role="menuitem" class="hl" data-a="open-auto" data-k="${id}" title="Labels the rest of a folder from a few templates you draw. Review the previews before generating.">Configure Auto-Annotation</button></li>
+        <li><button role="menuitem" data-a="soon">Upload Images</button></li>
+        <li><button role="menuitem" data-a="soon">Rename Folder</button></li>
+        <li><button role="menuitem" data-a="soon" class="danger">Delete Folder</button></li></ul>` : '';
+    const chev = (k, open) => `<button class="tw" data-a="expand" data-k="${k}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" class="${open ? 'rot' : ''}"><path d="m9 6 6 6-6 6"/></svg></button>`;
+    const chips = ['Screw', 'Connector', 'Serial Number', 'Scratch'].map((n, i) => `<span class="cchip" style="--c:${['#2563eb', '#16a34a', '#9333ea', '#e11d48'][i]}">${n}</span>`).join('');
+    const ann = (a, n) => `<span class="${n && a === n ? 'cnt-ok' : 'cnt-part'}">${a}/${n}</span>`;
+    const b07 = S.folderDone ? 48 : 0;
+    const folder = (id, name, a, n, extra = '') => `<tr class="${S.menu === id ? 'sel' : ''}"><td></td><td></td>
+        <td><div class="fcell" style="padding-left:52px"><span class="fname">${name}</span>${extra}<span class="flinks"><button class="ul" data-a="soon">View Datasets</button><button class="ul ${n ? '' : 'off'}" data-a="${n ? 'soon' : 'empty'}">View Annotations</button></span></div></td>
+        <td></td><td class="c muted">—</td><td class="c">${ann(a, n)}</td><td class="c muted">4/10/2026</td><td class="c muted">7/10/2026</td>
+        <td class="menu-cell">${dots(id)}${menu(id)}</td></tr>`;
+    const th = (t, tip) => `<th><span>${t} <span class="hinfo" title="${tip}">i</span></span></th>`;
+    let rows = `<tr><td>Housing A</td><td class="c">Top 1</td><td><div class="fcell">${chev('ds', ex.ds)}<span>Line 2</span></div></td><td><div class="chips">${chips}</div></td><td class="c muted">—</td><td class="c">${ann(S.folderDone ? 96 : 48, 96)}</td><td class="c muted">21/9/2026</td><td class="c muted">7/10/2026</td><td></td></tr>`;
+    if (ex.ds) {
+      rows += `<tr><td></td><td></td><td><div class="fcell" style="padding-left:26px">${chev('sub', ex.sub)}<span class="sub">Week 40</span></div></td><td></td><td class="c muted">—</td><td class="c">${ann(S.folderDone ? 96 : 48, 96)}</td><td class="c muted">28/9/2026</td><td class="c muted">7/10/2026</td><td></td></tr>`;
+      if (ex.sub) {
+        rows += folder('b06', 'Batch 06', 48, 48);
+        rows += folder('b07', 'Batch 07', b07, 48, S.folderRunning ? '<span class="tag run">Auto-annotating…</span>' : S.folderDone ? '<span class="tag ok">Auto-annotated</span>' : '');
+        rows += folder('b08', 'Batch 08', 0, 0);
+      }
+    }
+    const filt = (n, c) => `<button class="filt" data-a="soon">${n}<sup>${c}</sup><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>`;
+    return `
+      <div class="crumbs"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg><span>›</span><span>Housing A Inspection</span><span>›</span><b>Datasets &amp; Annotations</b> <span class="info" style="width:15px;height:15px;font-size:9px" title="Every dataset for this project, grouped by variant and capture. Open a folder to annotate it.">i</span></div>
+      <div class="filters">${filt('Variant Name', 0)}${filt('Capture', 0)}${filt('Dataset Folder 1', 0)}${filt('Is Deleted', 1)}</div>
+      ${S.folderDone ? `<div class="banner"><b>Batch 07: 48 of 48 images annotated automatically.</b><span>Open it with View Annotations to review and correct the labels.</span></div>` : ''}
+      <p class="hintline">Open the <b>⋮</b> menu on <b>Batch 07</b> and choose <b>Configure Auto-Annotation</b> to start.</p>
+      <div class="tbl-wrap dtw"><table class="dt">
+        <thead><tr>${th('Variant', 'Product variant this dataset belongs to.')}${th('Capture', 'The capture (camera setup) the images come from.')}${th('Folder', 'Dataset, sub-dataset and folder.')}${th('Class coverage', 'Classes present in this dataset.')}${th('Recommended', 'Recommended number of images.')}${th('Annotated', 'Annotated images out of total.')}${th('Date created', 'When it was created.')}<th colspan="2"><span>Date modified <span class="hinfo" title="Last change.">i</span></span></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }
+
+  function rail() {
+    const ic = (d, label, on) => `<span class="ri ${on ? 'on' : ''}" title="${label}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${d}</svg><em>${label}</em></span>`;
+    return `<aside class="rail" aria-label="App navigation"><svg class="logo" width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 10V2h8M24 2h8v8M32 24v8h-8M10 32H2v-8"/><path d="M12 9h10M12 9v15M12 15h7" stroke-width="2"/></svg>
+      ${ic('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>', 'Settings')}
+      ${ic('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/>', 'Datasets & Annotations', true)}
+      ${ic('<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>', 'AI Models')}
+      ${ic('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', 'Inferencing')}</aside>`;
+  }
+
+  function header() {
+    return `<div class="app-h">Auto-Annotation Configuration <span class="info" title="Draw a few template annotations, tune the matching, preview the result, then generate labels for the whole folder.">i</span></div>`;
+  }
+  function stepper(active) {
+    const st = (i, n) => `<div class="st ${i === active ? 'on' : i < active ? 'done' : ''}"><i>${i < active ? '✓' : i + 1}</i>${n}</div>`;
+    return `<div class="stepper">${st(0, 'Annotate Templates')}<span class="st-line"></span>${st(1, 'Configure Auto-Annotation')}</div>`;
+  }
+
+  function canvas(img, i, overlays, caption) {
+    const drawing = !!S.draw;
+    return `<div class="stage-cap"><span>${caption}</span><span>${esc(img.id)}.png · 640 × 400</span></div>
+      <div class="imgbox ${drawing ? 'drawing' : ''}"><svg id="cv" viewBox="0 0 ${W} ${H}" role="img" aria-label="Image ${esc(img.id)} with annotations">${partSVG(img, 'm' + i)}${overlays}<rect id="tmp" x="0" y="0" width="0" height="0" fill="none" stroke="#ff4301" stroke-width="2" stroke-dasharray="6 4"/></svg></div>`;
+  }
+
+  function tplOverlays(withRois) {
+    let s = '';
+    for (const c of Object.keys(S.tpl)) {
+      const b = S.tpl[c];
+      if (!b) continue;
+      const tag = modOf(c).tag;
+      s += labelBox(b, CLASSES[c].color, withRois ? `${tag} : ${CLASSES[c].name} : T` : CLASSES[c].name, { fill: c === 'scratch' });
+    }
+    if (withRois) for (const c of Object.keys(S.cfg)) {
+      if (!S.cfg[c].auto) continue;
+      for (const r of S.cfg[c].rois) if (r.box) s += labelBox(r.box, CLASSES[c].color, `${modOf(c).tag} : ${CLASSES[c].name} : ${r.name}`, { dash: true, thin: true });
+    }
+    return s;
+  }
+
+  function viewTemplates() {
+    const armed = S.draw && S.draw.kind === 'tpl' ? S.draw.cls : null;
+    const list = MODULES.map(m => `<div class="mod-label">${esc(m.name)}</div>` + m.classes.map(c => {
+      const has = !!S.tpl[c];
+      return `<div class="tpl ${armed === c ? 'armed' : ''}"><span class="sw" style="background:${CLASSES[c].color}"></span>
+        <span class="nm">${CLASSES[c].name}<small>${m.type === 'segmentation' ? 'Mask template' : m.type === 'ocr' ? 'Text region (optional for OCR)' : 'Box template'}</small></span>
+        ${has ? '<span class="state-ok">Drawn</span>' : '<span class="state-no">Not drawn</span>'}
+        <button class="btn ghost md" data-a="tpl-draw" data-k="${c}">${armed === c ? 'Drawing…' : has ? 'Redraw' : 'Draw'}</button>
+        ${has ? `<button class="link" data-a="tpl-clear" data-k="${c}" aria-label="Clear ${CLASSES[c].name} template">Clear</button>` : ''}</div>`;
+    }).join('')).join('');
+    return header() + `<div class="grid"><div class="side">${stepper(0)}<div class="side-body">
+        <div class="sec"><h3>Copy existing annotations</h3>
+          <p>Start from annotations that already exist instead of drawing every template.</p>
+          <div class="row"><button class="btn ghost md" data-a="copy-master">Copy from master image</button><button class="btn ghost md" data-a="copy-pick">Copy from a dataset image</button></div>
+          ${S.copyPick ? `<div class="row"><select class="inp" id="srcimg" aria-label="Source image"><option>Batch 06 / IMG_0361.png</option><option>Batch 06 / IMG_0362.png</option><option>Batch 06 / IMG_0370.png</option></select><button class="btn md" data-a="copy-dataset">Copy</button><button class="link" data-a="copy-pick">Cancel</button></div>` : ''}
+        </div>
+        <div class="sec"><h3>Template annotations</h3>
+          <p>${armed ? `Drag on the image to draw the <b>${CLASSES[armed].name}</b> template.` : 'Each class needs one example on this image. Auto-annotation searches the rest of the folder for things that look like it.'}</p>
+          ${list}</div>
+      </div><div class="side-foot"><button class="btn" data-a="next">Next Step</button></div></div>
+      <div class="stage">${canvas(IMAGES[0], 0, tplOverlays(false), 'Template image: first image in Batch 07')}</div></div>
+      <div class="bottom"><button class="btn border" data-a="exit">Exit</button></div>`;
+  }
+
+  function roiCard(c, r, type) {
+    const id = (f) => `f_${r.id}_${f}`;
+    const num = (f, label, tip) => `<div class="fld"><label for="${id(f)}">${label}${tip ? ` <span class="info" title="${esc(tip)}">i</span>` : ''}</label><input class="inp" id="${id(f)}" type="number" step="0.01" min="0" max="${f === 'maxNum' ? 20 : 1}" value="${esc(r[f])}" data-f="${f}" data-c="${c}" data-r="${r.id}"></div>`;
+    const armed = S.draw && S.draw.kind === 'roi' && S.draw.roi === r.id;
+    let fields = '';
+    if (type === 'ocr') {
+      fields = num('textThresh', 'Text threshold', 'Decides how sure the system needs to be before it identifies something as text. Default 0.9') +
+        num('linkThresh', 'Link threshold', 'Controls how closely text blocks should be connected to be seen as one piece. Default 0.40') +
+        num('recogThresh', 'Recognition threshold', 'Sets the minimum threshold needed for the system to read the text. Default 0.9') +
+        num('lowTextThresh', 'Low text threshold', 'Helps detect faint or unclear text. Default 0.4');
+    } else {
+      fields = `<div class="fld"><label for="${id('template')}">Template</label><select class="inp" id="${id('template')}" data-f="template" data-c="${c}" data-r="${r.id}">
+          <option value="">Select Template</option>${S.tpl[c] ? `<option value="tpl_${c}" ${r.template ? 'selected' : ''}>${modOf(c).tag} : ${CLASSES[c].name} : T</option>` : ''}</select></div>` +
+        num('maxOverlap', 'Max overlap', 'Maximum allowed overlap between detected objects. Default 0.15') +
+        `<div class="fld"><label for="${id('modelType')}">Model type <span class="info" title="Shape detects based on object shapes; NCC matches patterns against a reference. Shape suits rigid parts, NCC suits texture.">i</span></label><select class="inp" id="${id('modelType')}" data-f="modelType" data-c="${c}" data-r="${r.id}"><option ${r.modelType === 'Shape' ? 'selected' : ''}>Shape</option><option ${r.modelType === 'NCC' ? 'selected' : ''}>NCC</option></select></div>` +
+        num('greediness', 'Greediness', 'How aggressively matches are found. Default 0.80') +
+        num('threshold', 'Threshold', 'Minimum similarity required to detect an object. Raise it if you get wrong matches. Default 0.15') +
+        num('maxNum', 'Maximum count', 'Maximum number of detections returned per region. Default 1, range 1–20');
+      if (type === 'segmentation') fields += `<div class="fld"><span></span><label class="chk"><input type="checkbox" data-f="matting" data-c="${c}" data-r="${r.id}" ${r.matting ? 'checked' : ''}> Matting</label></div>`;
+    }
+    const warn = !r.box ? `<div class="roi-warn">Draw this region on the image. Only objects inside it are searched.</div>` :
+      (type !== 'ocr' && !r.template ? `<div class="roi-warn">Pick a template for this ROI.</div>` : '');
+    return `<div class="roi"><div class="roi-h"><input type="checkbox" aria-label="Select ${r.name}" data-a="roi-sel" data-c="${c}" data-r="${r.id}" ${S.sel[r.id] ? 'checked' : ''}><b>${r.name}</b>
+      ${armed ? '<span class="roi-armed">Drag on the image…</span>' : ''}
+      <button class="btn ghost md draw" data-a="roi-draw" data-c="${c}" data-r="${r.id}">${r.box ? 'Redraw region' : 'Draw region'}</button></div>${warn}${fields}</div>`;
+  }
+
+  function viewConfigure() {
+    const cards = MODULES.map(m => {
+      const open = S.openModule === m.id;
+      const body = !open ? '' : `<div class="mcard-b"><p>Choose from the module classes below to enable auto-annotation for</p>` + m.classes.map(c => {
+        const cc = S.cfg[c];
+        const selCount = cc.rois.filter(r => S.sel[r.id]).length;
+        return `<div class="cls"><div class="cls-h"><span>${CLASSES[c].name}</span><button class="toggle" aria-pressed="${cc.auto}" aria-label="Auto-annotate ${CLASSES[c].name}" data-a="cls-toggle" data-k="${c}"></button></div>
+          ${cc.auto ? `<div class="cls-b"><p class="state-no" style="font-size:14px;color:var(--ink-2)">Add ROIs to be used as regions of auto-annotation for this class</p>
+            <div class="roi-actions"><button class="btn-del" data-a="roi-del" data-k="${c}" ${selCount ? '' : 'disabled'}>Delete ROIs${selCount ? ` (${selCount})` : ''}</button><button class="btn-add" data-a="roi-add" data-k="${c}">+ Add new ROI</button></div>
+            ${cc.rois.map(r => roiCard(c, r, m.type)).join('')}</div>` : ''}</div>`;
+      }).join('') + `</div>`;
+      return `<div class="mcard"><button class="mcard-h" data-a="mod-open" data-k="${m.id}" aria-expanded="${open}"><span><span class="t">${esc(m.name)}</span> <span class="k">${m.tag}</span></span><svg class="chev ${open ? 'up' : ''}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 6 5 5 5-5M7 13l5 5 5-5"/></svg></button>${body}</div>`;
+    }).join('');
+    const hasPrev = !!S.previews;
+    const stale = hasPrev && S.previewSig !== sig();
+    return header() + `<div class="grid"><div class="side">${stepper(1)}<div class="side-body">${cards}<div style="height:14px"></div></div>
+        <div class="side-foot"><button class="btn md" data-a="prev">Previous Step</button>
+          <button class="btn md pill" data-a="view" ${hasPrev ? '' : 'disabled title="Generate a preview first."'}>View Previews</button>
+          <button class="btn md" data-a="gen">Generate Preview</button></div></div>
+      <div class="stage">${stale ? '<div class="stale">Settings changed since the last preview. Generate Preview again to see the effect.</div>' : ''}${canvas(IMAGES[0], 0, tplOverlays(true), S.draw ? 'Drag to draw the region' : 'Templates (solid) and ROIs (dashed)')}</div></div>
+      <div class="bottom"><button class="btn border" data-a="exit">Exit</button><button class="btn" disabled title="Labels every image in this folder. Review the previews first.">Auto-Annotate Dataset</button></div>`;
+  }
+
+  function viewPreview() {
+    const P = S.previews;
+    const cur = P[S.previewIdx];
+    const thumbs = P.map((p, i) => `<button class="thumb" data-a="pv" data-k="${i}" aria-current="${i === S.previewIdx}"><svg viewBox="0 0 ${W} ${H}" aria-hidden="true">${partSVG(IMAGES[i], 't' + i)}${detOverlay(p.dets, true)}</svg><span><span>${IMAGES[i].id}</span><span>${p.dets.length} found</span></span></button>`).join('');
+    const enabled = Object.keys(S.cfg).filter(c => S.cfg[c].auto);
+    const rows = enabled.map(c => {
+      const n = cur.notes[c] || { found: 0 };
+      return `<div class="finding"><span class="sw" style="background:${CLASSES[c].color}"></span><b>${CLASSES[c].name}</b><span class="n">${n.found}</span></div>`;
+    }).join('');
+    const hints = [];
+    enabled.forEach(c => {
+      const n = cur.notes[c]; if (!n) return;
+      const nm = CLASSES[c].name;
+      if (n.capped) hints.push(`${n.capped} more ${nm} match${n.capped > 1 ? 'es were' : ' was'} dropped by Maximum count. Raise it or add one ROI per object.`);
+      if (n.low.length) hints.push(`${n.low.length} ${nm} match${n.low.length > 1 ? 'es' : ''} scored below the threshold (${n.low.join(', ')}).`);
+      if (n.outside) hints.push(`${n.outside} ${nm}${n.outside > 1 ? 's are' : ' is'} outside every ROI on this image. Make the region larger to allow for the part shifting.`);
+    });
+    return header() + `<div class="pv"><div class="pv-list"><h2>Preview Images</h2><div class="thumbs">${thumbs}</div></div>
+      <div class="pv-main"><div class="stage">${canvas(IMAGES[S.previewIdx], 9, detOverlay(cur.dets, false), `Preview ${S.previewIdx + 1} of ${P.length}`)}</div>
+        <div class="findings">${rows || '<span class="state-no">No classes switched on.</span>'}${hints.map(h => `<div class="note">${esc(h)}</div>`).join('')}</div></div></div>
+      <div class="bottom"><button class="btn md" data-a="back-cfg">Previous Step</button><button class="btn border" data-a="exit">Exit</button><button class="btn" data-a="run" ${S.folderDone || S.folderRunning ? 'disabled' : ''}>Auto-Annotate Dataset</button>
+        ${S.folderDone ? '<span class="state-ok">Batch 07 annotated. Exit to see it in Datasets.</span>' : '<span class="state-no">Labels every image in this folder. Review the previews first.</span>'}</div>`;
+  }
+
+  function detOverlay(dets, thumb) {
+    return dets.map(d => {
+      const col = CLASSES[d.cls].color;
+      if (d.path) return `<polyline points="${d.path.map(p => p.join(',')).join(' ')}" fill="none" stroke="${col}" stroke-width="${thumb ? 7 : 9}" stroke-linecap="round" opacity=".5"/>` + (thumb ? '' : labelBox(d.box, col, `${CLASSES[d.cls].name} ${d.score}`, { thin: true }));
+      const txt = thumb ? '' : d.read ? d.read : `${CLASSES[d.cls].name} ${d.score}`;
+      return labelBox(d.box, col, txt, { thin: thumb });
+    }).join('');
+  }
+
+  // ---------- canvas drawing ----------
+  function bindCanvas() {
+    const svg = $('#cv');
+    if (!svg || !S.draw) return;
+    const tmp = svg.querySelector('#tmp');
+    let start = null;
+    const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const r = p.matrixTransform(svg.getScreenCTM().inverse()); return [Math.max(0, Math.min(W, r.x)), Math.max(0, Math.min(H, r.y))]; };
+    const box = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])].map(Math.round);
+    svg.addEventListener('pointerdown', e => { start = pt(e); svg.setPointerCapture(e.pointerId); });
+    svg.addEventListener('pointermove', e => { if (!start) return; const [x, y, w, h] = box(start, pt(e)); tmp.setAttribute('x', x); tmp.setAttribute('y', y); tmp.setAttribute('width', w); tmp.setAttribute('height', h); });
+    svg.addEventListener('pointerup', e => {
+      if (!start) return;
+      const b = box(start, pt(e)); start = null;
+      if (b[2] < 8 || b[3] < 8) { toast('Drag a larger box', 'warn'); tmp.setAttribute('width', 0); return; }
+      const d = S.draw; S.draw = null;
+      if (d.kind === 'tpl') { S.tpl[d.cls] = b; toast(`${CLASSES[d.cls].name} template drawn`); }
+      else { const r = S.cfg[d.cls].rois.find(x => x.id === d.roi); if (r) r.box = b; }
+      render();
+    });
+  }
+
+  // ---------- actions ----------
+  function sig() { return JSON.stringify([S.tpl, S.cfg]); }
+  function newRoi(c) {
+    const type = modOf(c).type;
+    const n = S.cfg[c].rois.length + 1;
+    const base = { id: 'roi' + (++roiSeq), name: `ROI ${n}`, box: null };
+    if (type === 'ocr') return { ...base, textThresh: '0.9', linkThresh: '0.4', recogThresh: '0.9', lowTextThresh: '0.4' };
+    const r = { ...base, template: S.tpl[c] ? 'tpl_' + c : '', maxOverlap: '0.15', modelType: 'Shape', greediness: '0.80', threshold: '0.15', maxNum: '1' };
+    if (type === 'segmentation') r.matting = 0;
+    return r;
+  }
+
+  function payload() {
+    return {
+      folderId: IDS.subDataSetId, imageId: IMAGES[0].id,
+      modules: MODULES.map(m => ({
+        moduleId: m.id,
+        classes: m.classes.map(c => ({
+          classId: c, auto: S.cfg[c].auto,
+          config: S.cfg[c].rois.map(r => {
+            const roi = r.box ? xyxy(r.box) : null;
+            if (m.type === 'ocr') return { textThresh: r.textThresh, linkThresh: r.linkThresh, recogThresh: r.recogThresh, lowTextThresh: r.lowTextThresh, roi };
+            const o = { maxOverlap: r.maxOverlap, modelType: r.modelType, greediness: r.greediness, threshold: r.threshold, maxNum: r.maxNum, roi };
+            if (m.type === 'segmentation') return { ...o, matting: r.matting, templateRoi: S.tpl[c] && r.template ? `${IMAGES[0].id}/mask_${c}` : null, templateId: r.template || null };
+            return { ...o, ...(S.tpl[c] && r.template ? { templateRoi: quad(S.tpl[c]), templateId: r.template } : {}) };
+          }),
+        })),
+      })),
+    };
+  }
+
+  function busy(title, sub, ms, done) {
+    S.loader = { title, sub }; render();
+    setTimeout(() => { S.loader = null; done(); render(); }, ms);
+  }
+
+  function openAuto() {
+    S.menu = null; S.screen = 'templates';
+    if (!S.visited++) {
+      log('GET', `/dataset/allImages?folderId=${IDS.subDataSetId}&sortBy=file_name&sortOrder=asc`, 'Loads the folder images. The first one becomes the template image.');
+      log('GET', `/configurationImage/images?cameraConfigId=${IDS.cameraConfigId}&masterImage=1`, 'Finds the capture\'s master image (the API still calls a capture cameraConfig).');
+      log('GET', `/cameraConfig/module-configuration?cameraConfigId=${IDS.cameraConfigId}`, 'Lists modules. Only assembly, ocr and segmentation are offered.', { configurations: MODULES.map(m => ({ id: m.id, name: m.name, moduleStoreId: m.type, classes: m.classes.map(c => ({ id: c, name: CLASSES[c].name })) })) });
+      log('GET', `/annotation/configurations?folderId=${IDS.subDataSetId}`, 'Restores a saved setup. isLive reconnects to a running job.', { data: [] });
+    }
+  }
+
+  const A = {
+    reset() { S = fresh(); roiSeq = 0; render(); renderLog(); },
+    goto(k) {
+      if (k === 'preview' && !S.previews) { toast('Generate a preview first.', 'warn'); return; }
+      if (k !== 'datasets' && S.screen === 'datasets') { openAuto(); }
+      S.draw = null; S.screen = k; render();
+    },
+    menu(k) { S.menu = S.menu === k ? null : k; render(); },
+    expand(k) { S.expanded[k] = !S.expanded[k]; render(); },
+    empty() { toast('No images available inside the selected folder.', 'err'); },
+    soon() { S.menu = null; render(); toast('Not part of this prototype', 'warn'); },
+    'open-auto'(k) {
+      if (k === 'b08') { S.menu = null; render(); toast('No images available inside the selected folder.', 'err'); return; }
+      if (k === 'b06') { S.menu = null; render(); toast('Batch 06 is already annotated. Use Batch 07 for this prototype.', 'warn'); return; }
+      openAuto(); render();
+    },
+    'copy-master'() {
+      log('POST', 'annotation/cloneConfigAnnotation', 'Copies the master image annotations onto the template image.', { cameraConfigId: IDS.cameraConfigId, targetImageId: IMAGES[0].id, targetType: 'dataset' });
+      S.tpl.screw = [94, 64, 32, 32]; S.tpl.conn = [266, 146, 108, 58]; S.tpl.serial = [388, 228, 124, 54];
+      render(); toast('Annotations copied successfully');
+    },
+    'copy-pick'() { S.copyPick = !S.copyPick; render(); },
+    'copy-dataset'() {
+      const src = $('#srcimg').value.split('/ ')[1].replace('.png', '');
+      log('POST', 'annotation/cloneDatasetAnnotation', 'Copies a hand-annotated image\'s labels onto the template image.', { cameraConfigId: IDS.cameraConfigId, targetImageId: IMAGES[0].id, sourceImageId: src });
+      S.tpl.screw = [94, 64, 32, 32]; S.tpl.conn = [266, 146, 108, 58]; S.tpl.serial = [388, 228, 124, 54]; S.tpl.scratch = [176, 230, 80, 34];
+      S.copyPick = false; render(); toast('Annotations copied successfully');
+    },
+    'tpl-draw'(k) { S.draw = S.draw && S.draw.cls === k && S.draw.kind === 'tpl' ? null : { kind: 'tpl', cls: k }; render(); },
+    'tpl-clear'(k) { S.tpl[k] = null; render(); },
+    next() {
+      if (S.draw) { toast('Please confirm the creation of the new label first before proceeding', 'warn'); return; }
+      log('SAVE', 'uploadAnnotations({ cameraConfigId, type: DATASET, datasetId })', 'Saves the template annotations drawn on the template image.', { imageId: IMAGES[0].id, shapes: Object.entries(S.tpl).filter(([, b]) => b).map(([c, b]) => ({ classId: c, type: c === 'scratch' ? 'mask' : 'rectangle', coordinates: quad(b) })) });
+      S.screen = 'configure'; render();
+    },
+    prev() { S.draw = null; S.screen = 'templates'; render(); },
+    exit() { S.draw = null; S.screen = 'datasets'; render(); },
+    'mod-open'(k) { S.openModule = S.openModule === k ? null : k; render(); },
+    'cls-toggle'(k) { const c = S.cfg[k]; c.auto = !c.auto; if (c.auto && !c.rois.length) c.rois.push(newRoi(k)); render(); },
+    'roi-add'(k) { S.cfg[k].rois.push(newRoi(k)); render(); },
+    'roi-del'(k) { S.cfg[k].rois = S.cfg[k].rois.filter(r => !S.sel[r.id]); S.cfg[k].rois.forEach((r, i) => r.name = `ROI ${i + 1}`); render(); },
+    'roi-draw'(_, el) { const { c, r } = el.dataset; S.draw = S.draw && S.draw.roi === r ? null : { kind: 'roi', cls: c, roi: r }; render(); },
+    gen() {
+      const on = Object.keys(S.cfg).filter(c => S.cfg[c].auto);
+      if (!on.length) { toast('Switch on at least one class first', 'err'); return; }
+      for (const c of on) {
+        if (!S.cfg[c].rois.length) { toast(`Add an ROI for ${CLASSES[c].name}`, 'err'); return; }
+        if (S.cfg[c].rois.some(r => !r.box)) { toast(`Draw every ROI for ${CLASSES[c].name} on the image`, 'err'); return; }
+        if (modOf(c).type !== 'ocr' && S.cfg[c].rois.some(r => !r.template)) { toast(`Pick a template for each ${CLASSES[c].name} ROI`, 'err'); return; }
+      }
+      log('POST', '/annotation/configurations', 'Saves the setup and starts preview generation.', payload());
+      S.draw = null;
+      busy('Generating Previews', `SSE /api/annotation/sse?folderId=${IDS.subDataSetId}`, 2200, () => {
+        S.previews = IMAGES.map((img, i) => detect(img, i, S.cfg, S.tpl));
+        S.previewSig = sig(); S.previewIdx = 0;
+        log('SSE', `/api/annotation/sse?folderId=${IDS.subDataSetId}`, 'Stream closes on { completed: true }, then the saved configuration is fetched again.', { completed: true });
+        log('GET', `/annotation/configurations?folderId=${IDS.subDataSetId}`, 'autoAnnotation now holds preview results keyed by image id.', { data: [{ isLive: 0, autoAnnotation: Object.fromEntries(IMAGES.map((im, i) => [im.id, { shapes: S.previews[i].dets.length }])) }] });
+        toast('Previews Generated');
+      });
+    },
+    view() { S.draw = null; S.screen = 'preview'; render(); },
+    pv(k) { S.previewIdx = +k; render(); },
+    'back-cfg'() { S.screen = 'configure'; render(); },
+    run() {
+      log('PUT', '/annotation/generate', 'Runs the saved setup on every image in the folder.', { folderId: IDS.subDataSetId });
+      toast('Auto-annotation started');
+      S.folderRunning = true;
+      busy('Generating Annotations for Dataset', `SSE /api/annotation/sse?folderId=${IDS.subDataSetId}`, 3000, () => {
+        S.folderRunning = false; S.folderDone = true;
+        log('SSE', `/api/annotation/sse?folderId=${IDS.subDataSetId}`, 'Job finished for all 48 images.', { completed: true });
+        toast('Annotation Generated for the Dataset');
+      });
+    },
+  };
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-a]');
+    if (!el) { if (S.menu && !e.target.closest('.menu')) { S.menu = null; render(); } return; }
+    if (el.dataset.a === 'roi-sel') { S.sel[el.dataset.r] = el.checked; render(); return; }
+    const fn = A[el.dataset.a];
+    if (fn) { e.preventDefault(); fn(el.dataset.k, el); }
+  });
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (!el.dataset.f) return;
+    const r = S.cfg[el.dataset.c].rois.find(x => x.id === el.dataset.r);
+    if (!r) return;
+    r[el.dataset.f] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : el.value;
+    if (!rendering) setTimeout(render, 0);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && (S.draw || S.menu)) { S.draw = null; S.menu = null; render(); } });
+
+  function renderLog() {
+    const ol = $('#log');
+    if (!S.log.length) { ol.innerHTML = '<li class="empty">Nothing yet. Start from the Datasets &amp; Annotations screen.</li>'; return; }
+    ol.innerHTML = S.log.map(l => `<li><details><summary><span class="m ${l.method}">${l.method}</span><code>${esc(l.path)}</code><span class="why">${esc(l.why)}</span></summary>${l.body ? `<pre>${esc(JSON.stringify(l.body, null, 2))}</pre>` : ''}</details></li>`).join('');
+  }
+
+  render(); renderLog();
+})();
+</script>
