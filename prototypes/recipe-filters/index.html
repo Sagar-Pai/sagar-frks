@@ -22,8 +22,6 @@
   --ok-soft: #dcfce7;
   --err: #dc2626;
   --err-soft: #fee2e2;
-  --idle: #6b7280;
-  --idle-soft: #f3f4f6;
   --mark: #fde68a;
   --font: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -121,8 +119,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .st { text-decoration: underline; text-underline-offset: 3px; }
 .st.prog { color: var(--err); }
 .st.done { color: var(--ok); }
-.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 500; }
-.pill.idle { background: var(--idle-soft); color: var(--idle); }
 .empty td { padding: 40px 10px; color: var(--muted); }
 .empty .link { font-size: 14px; }
 
@@ -176,7 +172,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   const STEPS = { 1: 'Inspection Workflow', 2: 'Dataset Folders', 3: 'Sample Images', 4: 'Sample Labels' };
   const MODULE_ORDER = ['ODC', 'IC', 'QR/Code', 'CD', 'Bead', 'OCR', 'OTC', 'SA', 'Masking', 'Segmentation', 'Tracker'];
 
-  // status: done | prog | idle (not started). step/total only for prog.
+  // status: done | prog. step/total only for prog.
   const R = (variant, capture, status, step, total, mods, days) => ({ variant, capture, status, step, total, mods, days });
   const ROWS = [
     R('OCR', 'Bead Inspection', 'prog', 1, 4, { ODC: 1, Bead: 2, CD: 1, OCR: 1 }, 2),
@@ -185,9 +181,9 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     R('searchArea', 'Capture - SA', 'prog', 1, 4, { ODC: 4, OTC: 1, SA: 4 }, 0),
     R('v2', 'cc1', 'prog', 1, 4, { ODC: 1, SA: 1 }, 45),
     R('Var 1', 'AA check', 'done', 0, 0, { ODC: 1, IC: 2, SA: 2 }, 14),
-    R('Var 1', 'Absent Class', 'idle', 0, 0, {}, 60),
+    R('Var 1', 'Absent Class', 'prog', 1, 2, {}, 60),
     R('Var 1', 'bakri', 'prog', 1, 4, { ODC: 1, OTC: 1, SA: 2 }, 6),
-    R('Var 1', 'Bead Black and White', 'idle', 0, 0, {}, 22),
+    R('Var 1', 'Bead Black and White', 'prog', 1, 2, {}, 22),
     R('Var 1', 'cc1', 'prog', 2, 4, { ODC: 2 }, 3),
     R('Var 1', 'cc2', 'prog', 4, 4, { ODC: 3, IC: 2, 'QR/Code': 1, CD: 1, SA: 2, Tracker: 1 }, 1),
     R('Var 1', 'Everything', 'prog', 1, 4, { ODC: 1, IC: 1, OCR: 1, SA: 1, Segmentation: 2 }, 11),
@@ -195,12 +191,11 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     R('Var 1', 'IC Checks', 'prog', 1, 4, { ODC: 1, IC: 2, SA: 2, Segmentation: 1 }, 8),
     R('Var 1', 'Only Image', 'done', 0, 0, { CD: 1 }, 27),
     R('Var 1', 'OTC', 'prog', 1, 4, { ODC: 1, IC: 2, Masking: 2, OCR: 1, OTC: 4, SA: 1, Segmentation: 1 }, 4),
-    R('Var 1', 'OTC - Vaibhav', 'idle', 0, 0, {}, 38),
+    R('Var 1', 'OTC - Vaibhav', 'prog', 1, 2, {}, 38),
   ];
   ROWS.forEach((r, i) => { r.id = i; r.modCount = Object.values(r.mods).reduce((a, b) => a + b, 0); });
 
   const STATUS = [
-    { k: 'idle', label: 'Not Started', dot: 'var(--idle)' },
     { k: 'prog', label: 'In Progress', dot: 'var(--err)' },
     { k: 'done', label: 'Completed', dot: 'var(--ok)' },
   ];
@@ -211,7 +206,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   const S = {
     q: '',
     variants: new Set(),
-    statuses: new Set(),      // 'idle' | 'prog' | 'done'
+    statuses: new Set(),      // 'prog' | 'done'
     steps: new Set(),         // step numbers, only while 'prog' is partially chosen
     modules: new Set(),       // module names or '__none'
     modMode: 'any',
@@ -249,8 +244,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   };
   const filtered = (skip) => ROWS.filter(r => Object.entries(pass).every(([k, f]) => k === skip || f(r)));
 
-  // Least finished first: not started, then by step, then complete.
-  const progress = r => r.status === 'idle' ? 0 : r.status === 'done' ? 2 : r.step / r.total;
+  // Least finished first: by step, then complete.
+  const progress = r => r.status === 'done' ? 2 : r.step / r.total;
   const SORTS = {
     variant: (a, b) => cmpText(a.variant, b.variant) || cmpText(a.capture, b.capture),
     capture: (a, b) => cmpText(a.capture, b.capture),
@@ -348,7 +343,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   const cam = '<svg class="cam" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l2-3h4l2 3"/><circle cx="12" cy="13.5" r="3"/></svg>';
   function statusCell(r) {
     if (r.status === 'done') return `<a class="st done" href="#" data-noop>Complete</a>`;
-    if (r.status === 'idle') return `<span class="pill idle">Not Started</span>`;
     return `<a class="st prog" href="#" data-noop>At Step ${r.step}/${r.total}: ${STEPS[r.step] || ''}</a>`;
   }
   function modulesCell(r) {
