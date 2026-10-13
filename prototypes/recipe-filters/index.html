@@ -139,7 +139,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 <div class="wrap">
   <div class="proto">
     <b>Recipe Management · filter &amp; sort prototype</b>
-    <span class="sub">Rows copied from the Vaibhav Test project. Rows tagged “example” and all last-modified dates are made up.</span>
+    <span class="sub">Rows copied from the Vaibhav Test project. Rows tagged “example” are made up. Click a column name to sort.</span>
   </div>
 
   <div class="app">
@@ -157,7 +157,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
       <div class="dd" id="dd-variant"></div>
       <div class="dd" id="dd-status"></div>
       <div class="dd" id="dd-module"></div>
-      <div class="dd" id="dd-sort"></div>
       <div class="actions"><button class="btn" type="button">Add Recipe</button><button class="btn" type="button">Edit Table</button></div>
     </div>
 
@@ -262,7 +261,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     capture: (a, b) => cmpText(a.capture, b.capture),
     status: (a, b) => progress(a) - progress(b),
     modules: (a, b) => a.modCount - b.modCount,
-    updated: (a, b) => a.days - b.days,
   };
   const sorted = rows => {
     const k = S.sort.key;
@@ -311,20 +309,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     return trig('module', 'Modules', S.modules.size) + pop;
   }
 
-  const SORT_OPTS = [
-    ['', 1, 'Default (variant, capture)'],
-    ['variant', 1, 'Variant name A–Z'], ['variant', -1, 'Variant name Z–A'],
-    ['capture', 1, 'Capture A–Z'], ['capture', -1, 'Capture Z–A'],
-    ['status', 1, 'Least finished first'], ['status', -1, 'Most finished first'],
-    ['modules', -1, 'Most modules first'], ['modules', 1, 'Fewest modules first'],
-    ['updated', 1, 'Recently modified'],
-  ];
-  function renderSort() {
-    const cur = SORT_OPTS.find(o => (o[0] || null) === S.sort.key && (o[0] === '' || o[1] === S.sort.dir));
-    const pop = S.open !== 'sort' ? '' : `<div class="pop" role="dialog" aria-label="Sort">` +
-      SORT_OPTS.map(([k, d, l]) => `<label class="opt"><input type="radio" name="sort" data-sort="${k}" data-dir="${d}" ${cur && cur[2] === l ? 'checked' : ''}><span class="lbl">${l}</span>${k === 'updated' ? '<span class="n">needs API</span>' : ''}</label>`).join('') + `</div>`;
-    return trig('sort', 'Sort: ' + (cur ? cur[2] : 'Default'), null) + pop;
-  }
 
   // ---- summary chips (they drive the Config Status filter)
   function renderSummary() {
@@ -394,8 +378,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     document.getElementById('dd-variant').innerHTML = renderVariant();
     document.getElementById('dd-status').innerHTML = renderStatus();
     document.getElementById('dd-module').innerHTML = renderModule();
-    document.getElementById('dd-sort').innerHTML = renderSort();
-    ['variant', 'status', 'module', 'sort'].forEach(id => document.getElementById('dd-' + id).classList.toggle('open', S.open === id));
+    ['variant', 'status', 'module'].forEach(id => document.getElementById('dd-' + id).classList.toggle('open', S.open === id));
     const rows = sorted(filtered());
     renderSummary();
     renderActive(rows.length);
@@ -460,7 +443,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
       } else toggle(S.steps, st);
       if (progStepsAll.every(x => S.steps.has(x))) { S.steps.clear(); S.statuses.add('prog'); }
     }
-    if ('sort' in d) { S.sort = d.sort ? { key: d.sort, dir: +d.dir } : { key: null, dir: 1 }; S.open = null; }
     render();
   });
 
@@ -474,7 +456,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     if (saved) {
       S.q = saved.q || ''; q.value = S.q;
       S.variants = new Set(saved.variants); S.statuses = new Set(saved.statuses); S.steps = new Set(saved.steps);
-      S.modules = new Set(saved.modules); S.modMode = saved.modMode || 'any'; S.sort = saved.sort || S.sort;
+      S.modules = new Set(saved.modules); S.modMode = saved.modMode || 'any'; S.sort = saved.sort && (!saved.sort.key || SORTS[saved.sort.key]) ? saved.sort : S.sort;
     }
   } catch (e) {}
   render();
