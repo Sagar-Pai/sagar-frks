@@ -123,8 +123,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 .st.done { color: var(--ok); }
 .pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 500; }
 .pill.idle { background: var(--idle-soft); color: var(--idle); }
-.pill.fail { background: var(--err-soft); color: var(--err); }
-.ex { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
 .empty td { padding: 40px 10px; color: var(--muted); }
 .empty .link { font-size: 14px; }
 
@@ -139,7 +137,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 <div class="wrap">
   <div class="proto">
     <b>Recipe Management · filter &amp; sort prototype</b>
-    <span class="sub">Rows copied from the Vaibhav Test project. Rows tagged “example” are made up. Click a column name to sort.</span>
+    <span class="sub">Rows copied from the Vaibhav Test project. Click a column name to sort.</span>
   </div>
 
   <div class="app">
@@ -178,8 +176,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   const STEPS = { 1: 'Inspection Workflow', 2: 'Dataset Folders', 4: 'Sample Labels' };
   const MODULE_ORDER = ['ODC', 'IC', 'QR/Code', 'CD', 'Bead', 'OCR', 'OTC', 'SA', 'Masking', 'Segmentation', 'Tracker'];
 
-  // status: done | prog | idle (not started) | fail. step/total only for prog and fail.
-  const R = (variant, capture, status, step, total, mods, days, example) => ({ variant, capture, status, step, total, mods, days, example: !!example });
+  // status: done | prog | idle (not started). step/total only for prog.
+  const R = (variant, capture, status, step, total, mods, days) => ({ variant, capture, status, step, total, mods, days });
   const ROWS = [
     R('OCR', 'Bead Inspection', 'prog', 1, 4, { ODC: 1, Bead: 2, CD: 1, OCR: 1 }, 2),
     R('OCR', 'OCR name change', 'prog', 1, 4, { ODC: 1, 'QR/Code': 1, CD: 1, OTC: 1, SA: 2, Segmentation: 1 }, 9),
@@ -198,8 +196,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     R('Var 1', 'Only Image', 'done', 0, 0, { CD: 1 }, 27),
     R('Var 1', 'OTC', 'prog', 1, 4, { ODC: 1, IC: 2, Masking: 2, OCR: 1, OTC: 4, SA: 1, Segmentation: 1 }, 4),
     R('Var 1', 'OTC - Vaibhav', 'idle', 0, 0, {}, 38),
-    R('Var 2', 'Label Print', 'fail', 2, 4, { ODC: 1, OCR: 2 }, 1, true),
-    R('Var 2', 'Cap Seal', 'fail', 4, 4, { ODC: 2, IC: 1, SA: 1 }, 5, true),
   ];
   ROWS.forEach((r, i) => { r.id = i; r.modCount = Object.values(r.mods).reduce((a, b) => a + b, 0); });
 
@@ -207,7 +203,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     { k: 'idle', label: 'Not Started', dot: 'var(--idle)' },
     { k: 'prog', label: 'In Progress', dot: 'var(--err)' },
     { k: 'done', label: 'Completed', dot: 'var(--ok)' },
-    { k: 'fail', label: 'Failed', dot: '#7f1d1d' },
   ];
   const stepKey = r => r.status === 'prog' ? 'prog:' + r.step : null;
   const progStepsAll = [...new Set(ROWS.filter(r => r.status === 'prog').map(r => r.step))].sort();
@@ -216,7 +211,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   const S = {
     q: '',
     variants: new Set(),
-    statuses: new Set(),      // 'idle' | 'prog' | 'done' | 'fail'
+    statuses: new Set(),      // 'idle' | 'prog' | 'done'
     steps: new Set(),         // step numbers, only while 'prog' is partially chosen
     modules: new Set(),       // module names or '__none'
     modMode: 'any',
@@ -254,8 +249,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   };
   const filtered = (skip) => ROWS.filter(r => Object.entries(pass).every(([k, f]) => k === skip || f(r)));
 
-  // Least finished first: failed, not started, then by step, then complete.
-  const progress = r => r.status === 'fail' ? -1 : r.status === 'idle' ? 0 : r.status === 'done' ? 2 : r.step / r.total;
+  // Least finished first: not started, then by step, then complete.
+  const progress = r => r.status === 'idle' ? 0 : r.status === 'done' ? 2 : r.step / r.total;
   const SORTS = {
     variant: (a, b) => cmpText(a.variant, b.variant) || cmpText(a.capture, b.capture),
     capture: (a, b) => cmpText(a.capture, b.capture),
@@ -354,7 +349,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   function statusCell(r) {
     if (r.status === 'done') return `<a class="st done" href="#" data-noop>Complete</a>`;
     if (r.status === 'idle') return `<span class="pill idle">Not Started</span>`;
-    if (r.status === 'fail') return `<span class="pill fail">Failed at Step ${r.step}/${r.total}: ${STEPS[r.step] || ''}</span>`;
     return `<a class="st prog" href="#" data-noop>At Step ${r.step}/${r.total}: ${STEPS[r.step] || ''}</a>`;
   }
   function modulesCell(r) {
@@ -367,7 +361,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   function renderBody(rows) {
     document.getElementById('tbody').innerHTML = rows.length ? rows.map(r => `<tr>
       <td>${hl(r.variant)}</td>
-      <td class="cap">${hl(r.capture)}${r.example ? '<span class="ex">example</span>' : ''}${cam}</td>
+      <td class="cap">${hl(r.capture)}${cam}</td>
       <td>${statusCell(r)}</td>
       ${modulesCell(r)}
       <td class="act">⋮</td>
@@ -455,7 +449,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     const saved = JSON.parse(localStorage.getItem('recipe-filters') || 'null');
     if (saved) {
       S.q = saved.q || ''; q.value = S.q;
-      S.variants = new Set(saved.variants); S.statuses = new Set(saved.statuses); S.steps = new Set(saved.steps);
+      S.variants = new Set(saved.variants); S.statuses = new Set((saved.statuses || []).filter(s => STATUS.some(x => x.k === s))); S.steps = new Set(saved.steps);
       S.modules = new Set(saved.modules); S.modMode = saved.modMode || 'any'; S.sort = saved.sort && (!saved.sort.key || SORTS[saved.sort.key]) ? saved.sort : S.sort;
     }
   } catch (e) {}
