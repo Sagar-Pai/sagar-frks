@@ -288,7 +288,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     const base = filtered('status');
     const n = k => base.filter(r => r.status === k).length;
     const progAll = S.statuses.has('prog');
-    const pop = S.open !== 'status' ? '' : `<div class="pop" role="dialog" aria-label="Reco Status filter">` +
+    const pop = S.open !== 'status' ? '' : `<div class="pop" role="dialog" aria-label="Config Status filter">` +
       STATUS.map(s => {
         let html = opt(`data-status="${s.k}"`, S.statuses.has(s.k), s.label, n(s.k));
         if (s.k === 'prog') html += progStepsAll.map(st => {
@@ -297,7 +297,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
         return html;
       }).join('') +
       `<div class="foot"><button class="link" data-clear="status">Clear</button></div></div>`;
-    return trig('status', 'Reco Status', S.statuses.size + S.steps.size) + pop;
+    return trig('status', 'Config Status', S.statuses.size + S.steps.size) + pop;
   }
 
   function renderModule() {
@@ -326,7 +326,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     return trig('sort', 'Sort: ' + (cur ? cur[2] : 'Default'), null) + pop;
   }
 
-  // ---- summary chips (they drive the Reco Status filter)
+  // ---- summary chips (they drive the Config Status filter)
   function renderSummary() {
     const base = filtered('status');
     const onlyOne = S.statuses.size === 1 && !S.steps.size ? [...S.statuses][0] : null;
