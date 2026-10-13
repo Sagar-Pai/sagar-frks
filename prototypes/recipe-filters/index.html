@@ -71,10 +71,6 @@ button:focus-visible, input:focus-visible, th button:focus-visible { outline: 2p
 .opt.sub { padding-left: 40px; }
 .opt.zero { opacity: .5; }
 .pop hr { border: 0; border-top: 1px solid var(--line-2); margin: 6px 0; }
-.pop .head { padding: 4px 16px 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.seg { display: flex; margin: 2px 16px 8px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.seg button { flex: 1; border: 0; background: none; padding: 5px 8px; font-size: 12px; color: var(--ink-2); }
-.seg button.on { background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; }
 .pop .foot { display: flex; justify-content: space-between; padding: 6px 16px 2px; }
 .link { border: 0; background: none; color: var(--primary-ink); font-size: 12px; padding: 0; }
 
@@ -209,7 +205,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     statuses: new Set(),      // 'prog' | 'done'
     steps: new Set(),         // step numbers, only while 'prog' is partially chosen
     modules: new Set(),       // module names or '__none'
-    modMode: 'any',
     sort: { key: null, dir: 1 },
     open: null,
   };
@@ -239,7 +234,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
       const picked = [...S.modules].filter(m => m !== '__none');
       if (wantNone && !names.length) return true;
       if (!picked.length) return false;
-      return S.modMode === 'all' ? picked.every(m => names.includes(m)) : picked.some(m => names.includes(m));
+      return picked.some(m => names.includes(m));
     },
   };
   const filtered = (skip) => ROWS.filter(r => Object.entries(pass).every(([k, f]) => k === skip || f(r)));
@@ -291,8 +286,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   function renderModule() {
     const base = filtered('module');
     const pop = S.open !== 'module' ? '' : `<div class="pop" role="dialog" aria-label="Module filter">` +
-      `<div class="head">Show recipes that have</div>` +
-      `<div class="seg"><button type="button" data-mode="any" class="${S.modMode === 'any' ? 'on' : ''}">Any selected</button><button type="button" data-mode="all" class="${S.modMode === 'all' ? 'on' : ''}">All selected</button></div>` +
       MODULE_ORDER.map(m => opt(`data-module="${esc(m)}"`, S.modules.has(m), esc(m), base.filter(r => r.mods[m]).length)).join('') +
       `<hr>` + opt('data-module="__none"', S.modules.has('__none'), 'No modules added yet', base.filter(r => !r.modCount).length) +
       `<div class="foot"><button class="link" data-clear="module">Clear</button></div></div>`;
@@ -317,7 +310,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     S.variants.forEach(v => chips.push(['Variant', esc(v), 'variant', v]));
     S.statuses.forEach(s => chips.push(['Status', STATUS.find(x => x.k === s).label, 'status', s]));
     S.steps.forEach(st => chips.push(['Status', `In Progress · ${STEPS[st] || 'Step ' + st}`, 'step', st]));
-    S.modules.forEach(m => chips.push([`Module${S.modules.size > 1 ? ' (' + S.modMode + ')' : ''}`, m === '__none' ? 'No modules' : esc(m), 'module', m]));
+    S.modules.forEach(m => chips.push(['Module', m === '__none' ? 'No modules' : esc(m), 'module', m]));
     document.getElementById('active').innerHTML =
       `<span class="count">Showing <b>${shown}</b> of ${ROWS.length} recipes</span>` +
       chips.map(([k, v, t, val]) => `<span class="ch"><b>${k}:</b> ${v}<button type="button" aria-label="Remove ${k} ${esc(String(val))}" data-rm="${t}" data-val="${esc(String(val))}">×</button></span>`).join('') +
@@ -373,7 +366,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     renderHead();
     renderBody(rows);
     document.getElementById('qx').hidden = !S.q;
-    try { localStorage.setItem('recipe-filters', JSON.stringify({ q: S.q, variants: [...S.variants], statuses: [...S.statuses], steps: [...S.steps], modules: [...S.modules], modMode: S.modMode, sort: S.sort })); } catch (e) {}
+    try { localStorage.setItem('recipe-filters', JSON.stringify({ q: S.q, variants: [...S.variants], statuses: [...S.statuses], steps: [...S.steps], modules: [...S.modules], sort: S.sort })); } catch (e) {}
   }
 
   function clear(what) {
@@ -391,8 +384,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     if (tg) { S.open = S.open === tg.dataset.toggle ? null : tg.dataset.toggle; render(); return; }
     const cl = t.closest('[data-clear]');
     if (cl) { clear(cl.dataset.clear); render(); return; }
-    const md = t.closest('[data-mode]');
-    if (md) { S.modMode = md.dataset.mode; render(); return; }
     const sm = t.closest('[data-summary]');
     if (sm) {
       // Clicking the chip that is already the only active one turns it off.
@@ -451,7 +442,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     if (saved) {
       S.q = saved.q || ''; q.value = S.q;
       S.variants = new Set(saved.variants); S.statuses = new Set((saved.statuses || []).filter(s => STATUS.some(x => x.k === s))); S.steps = new Set(saved.steps);
-      S.modules = new Set(saved.modules); S.modMode = saved.modMode || 'any'; S.sort = saved.sort && (!saved.sort.key || SORTS[saved.sort.key]) ? saved.sort : S.sort;
+      S.modules = new Set(saved.modules); S.sort = saved.sort && (!saved.sort.key || SORTS[saved.sort.key]) ? saved.sort : S.sort;
     }
   } catch (e) {}
   render();
