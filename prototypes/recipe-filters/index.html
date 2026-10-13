@@ -172,8 +172,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
 
 <script>
 (() => {
-  // Steps seen in the real table. Step 3 never appeared on screen, so it has no name here.
-  const STEPS = { 1: 'Inspection Workflow', 2: 'Dataset Folders', 4: 'Sample Labels' };
+  // The four configuration steps, in order.
+  const STEPS = { 1: 'Inspection Workflow', 2: 'Dataset Folders', 3: 'Sample Images', 4: 'Sample Labels' };
   const MODULE_ORDER = ['ODC', 'IC', 'QR/Code', 'CD', 'Bead', 'OCR', 'OTC', 'SA', 'Masking', 'Segmentation', 'Tracker'];
 
   // status: done | prog | idle (not started). step/total only for prog.
@@ -205,7 +205,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     { k: 'done', label: 'Completed', dot: 'var(--ok)' },
   ];
   const stepKey = r => r.status === 'prog' ? 'prog:' + r.step : null;
-  const progStepsAll = [...new Set(ROWS.filter(r => r.status === 'prog').map(r => r.step))].sort();
+  const progStepsAll = Object.keys(STEPS).map(Number);
   const variantsAll = [...new Set(ROWS.map(r => r.variant))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
   const S = {
