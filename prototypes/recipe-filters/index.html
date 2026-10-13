@@ -1,0 +1,482 @@
+<title>Recipe Management Filters</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a slim prototype bar, then the Recipe Management screen (breadcrumb, filter bar, summary chips, table) as in app.frinks.ai. Single light theme to match the app. */
+:root {
+  color-scheme: light;
+  --primary: #ff4301;
+  --primary-ink: #e03a00;
+  --primary-soft: #fdece5;
+  --ink: #111827;
+  --ink-2: #374151;
+  --muted: #6b7280;
+  --line: #d1d5db;
+  --line-2: #e5e7eb;
+  --surface: #ffffff;
+  --page: #f3f4f6;
+  --proto: #232838;
+  --proto-ink: #eef0f5;
+  --proto-muted: #a3abbd;
+  --ok: #15803d;
+  --ok-soft: #dcfce7;
+  --err: #dc2626;
+  --err-soft: #fee2e2;
+  --idle: #6b7280;
+  --idle-soft: #f3f4f6;
+  --mark: #fde68a;
+  --font: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; padding-inline: 16px; padding-block: 16px 32px; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, th button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.wrap { max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+/* prototype chrome */
+.proto { background: var(--proto); color: var(--proto-ink); border-radius: 10px; padding: 10px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.proto b { font-weight: 600; }
+.proto .sub { color: var(--proto-muted); font-size: 13px; }
+
+/* app screen */
+.app { background: var(--surface); border-radius: 10px; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.crumbs { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-2); flex-wrap: wrap; }
+.crumbs .sep { color: var(--muted); }
+.crumbs b { font-weight: 600; color: var(--ink); }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.bar .actions { margin-left: auto; display: flex; gap: 8px; }
+.btn { background: var(--primary); color: #fff; border: 0; border-radius: 6px; padding: 9px 18px; font-weight: 600; font-size: 13px; }
+.btn:hover { background: var(--primary-ink); }
+
+.search { position: relative; flex: 0 1 260px; min-width: 180px; }
+.search input { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 30px 8px 32px; font-size: 13px; background: var(--surface); }
+.search input:focus { border-color: var(--primary); outline: none; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.search .x { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; padding: 4px; }
+
+/* filter dropdowns */
+.dd { position: relative; }
+.dd > .trig { background: none; border: 0; padding: 6px 2px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); }
+.dd > .trig .chev { transition: transform .15s; }
+.dd.open > .trig .chev { transform: rotate(180deg); }
+.badge { min-width: 17px; height: 17px; border-radius: 999px; background: var(--line-2); color: var(--muted); font-size: 11px; font-weight: 600; display: inline-grid; place-items: center; padding: 0 5px; }
+.badge.on { background: var(--primary); color: #fff; }
+.pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, .12); padding: 8px 0; min-width: 240px; max-height: 360px; overflow: auto; }
+.pop::before { content: ''; position: absolute; top: -6px; left: 40px; width: 10px; height: 10px; background: var(--surface); border-left: 1px solid var(--line); border-top: 1px solid var(--line); transform: rotate(45deg); }
+.opt { display: flex; align-items: center; gap: 10px; padding: 7px 16px; cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.opt:hover { background: var(--page); }
+.opt input { accent-color: var(--primary); width: 15px; height: 15px; margin: 0; }
+.opt .lbl { flex: 1; }
+.opt .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.opt.sub { padding-left: 40px; }
+.opt.zero { opacity: .5; }
+.pop hr { border: 0; border-top: 1px solid var(--line-2); margin: 6px 0; }
+.pop .head { padding: 4px 16px 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; margin: 2px 16px 8px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; border: 0; background: none; padding: 5px 8px; font-size: 12px; color: var(--ink-2); }
+.seg button.on { background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; }
+.pop .foot { display: flex; justify-content: space-between; padding: 6px 16px 2px; }
+.link { border: 0; background: none; color: var(--primary-ink); font-size: 12px; padding: 0; }
+
+/* summary chips */
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.sc { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.sc .n { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sc .dot { width: 8px; height: 8px; border-radius: 50%; }
+.sc.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
+
+/* active filters */
+.active { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-height: 26px; }
+.ch { display: inline-flex; align-items: center; gap: 6px; background: var(--page); border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 6px 3px 10px; color: var(--ink-2); }
+.ch b { font-weight: 500; color: var(--muted); }
+.ch button { border: 0; background: none; color: var(--muted); padding: 0 4px; font-size: 15px; line-height: 1; }
+.ch button:hover { color: var(--err); }
+.count { font-variant-numeric: tabular-nums; }
+
+/* table */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 900px; }
+thead th { background: var(--primary); color: #fff; font-weight: 600; font-size: 14px; padding: 0; position: relative; }
+thead th + th::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; background: rgba(255, 255, 255, .55); }
+th .h { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; }
+th button.h { width: 100%; border: 0; background: none; color: inherit; font-weight: 600; }
+th button.h:hover { background: rgba(255, 255, 255, .1); }
+.arr { display: inline-flex; flex-direction: column; gap: 1px; opacity: .55; }
+.arr i { width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; }
+.arr .up { border-bottom: 5px solid currentColor; }
+.arr .dn { border-top: 5px solid currentColor; }
+th[aria-sort="ascending"] .arr, th[aria-sort="descending"] .arr { opacity: 1; }
+th[aria-sort="ascending"] .arr .dn, th[aria-sort="descending"] .arr .up { opacity: .3; }
+td { padding: 11px 10px; border-bottom: 1px solid var(--line-2); text-align: center; color: var(--ink); font-size: 14px; }
+tbody tr:hover td { background: #fafafa; }
+td.cap { position: relative; }
+td.cap .cam { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--primary); }
+td.mods { max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+td.mods .hit { color: var(--primary-ink); font-weight: 600; }
+td.mods .none { color: var(--ink-2); }
+td.act { width: 90px; color: var(--ink-2); font-size: 18px; letter-spacing: 1px; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+.st { text-decoration: underline; text-underline-offset: 3px; }
+.st.prog { color: var(--err); }
+.st.done { color: var(--ok); }
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 500; }
+.pill.idle { background: var(--idle-soft); color: var(--idle); }
+.pill.fail { background: var(--err-soft); color: var(--err); }
+.ex { font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; }
+.empty td { padding: 40px 10px; color: var(--muted); }
+.empty .link { font-size: 14px; }
+
+@media (max-width: 640px) {
+  .app { padding: 14px 12px 20px; }
+  .bar .actions { margin-left: 0; width: 100%; }
+  .search { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="proto">
+    <b>Recipe Management · filter &amp; sort prototype</b>
+    <span class="sub">Rows copied from the Vaibhav Test project. Rows tagged “example” and all last-modified dates are made up.</span>
+  </div>
+
+  <div class="app">
+    <div class="crumbs">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      <span class="sep">›</span><span>Vaibhav Test</span><span class="sep">›</span><b>Recipe Management</b>
+    </div>
+
+    <div class="bar">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="q" type="search" placeholder="Search variant or capture" autocomplete="off" aria-label="Search variant or capture">
+        <button class="x" id="qx" aria-label="Clear search" hidden>×</button>
+      </div>
+      <div class="dd" id="dd-variant"></div>
+      <div class="dd" id="dd-status"></div>
+      <div class="dd" id="dd-module"></div>
+      <div class="dd" id="dd-sort"></div>
+      <div class="actions"><button class="btn" type="button">Add Recipe</button><button class="btn" type="button">Edit Table</button></div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+    <div class="active" id="active"></div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Steps seen in the real table. Step 3 never appeared on screen, so it has no name here.
+  const STEPS = { 1: 'Inspection Workflow', 2: 'Dataset Folders', 4: 'Sample Labels' };
+  const MODULE_ORDER = ['ODC', 'IC', 'QR/Code', 'CD', 'Bead', 'OCR', 'OTC', 'SA', 'Masking', 'Segmentation', 'Tracker'];
+
+  // status: done | prog | idle (not started) | fail. step/total only for prog and fail.
+  const R = (variant, capture, status, step, total, mods, days, example) => ({ variant, capture, status, step, total, mods, days, example: !!example });
+  const ROWS = [
+    R('OCR', 'Bead Inspection', 'prog', 1, 4, { ODC: 1, Bead: 2, CD: 1, OCR: 1 }, 2),
+    R('OCR', 'OCR name change', 'prog', 1, 4, { ODC: 1, 'QR/Code': 1, CD: 1, OTC: 1, SA: 2, Segmentation: 1 }, 9),
+    R('OCR', 'wda', 'prog', 1, 2, { SA: 1 }, 31),
+    R('searchArea', 'Capture - SA', 'prog', 1, 4, { ODC: 4, OTC: 1, SA: 4 }, 0),
+    R('v2', 'cc1', 'prog', 1, 4, { ODC: 1, SA: 1 }, 45),
+    R('Var 1', 'AA check', 'done', 0, 0, { ODC: 1, IC: 2, SA: 2 }, 14),
+    R('Var 1', 'Absent Class', 'idle', 0, 0, {}, 60),
+    R('Var 1', 'bakri', 'prog', 1, 4, { ODC: 1, OTC: 1, SA: 2 }, 6),
+    R('Var 1', 'Bead Black and White', 'idle', 0, 0, {}, 22),
+    R('Var 1', 'cc1', 'prog', 2, 4, { ODC: 2 }, 3),
+    R('Var 1', 'cc2', 'prog', 4, 4, { ODC: 3, IC: 2, 'QR/Code': 1, CD: 1, SA: 2, Tracker: 1 }, 1),
+    R('Var 1', 'Everything', 'prog', 1, 4, { ODC: 1, IC: 1, OCR: 1, SA: 1, Segmentation: 2 }, 11),
+    R('Var 1', 'Hanging ann', 'done', 0, 0, { OCR: 1 }, 19),
+    R('Var 1', 'IC Checks', 'prog', 1, 4, { ODC: 1, IC: 2, SA: 2, Segmentation: 1 }, 8),
+    R('Var 1', 'Only Image', 'done', 0, 0, { CD: 1 }, 27),
+    R('Var 1', 'OTC', 'prog', 1, 4, { ODC: 1, IC: 2, Masking: 2, OCR: 1, OTC: 4, SA: 1, Segmentation: 1 }, 4),
+    R('Var 1', 'OTC - Vaibhav', 'idle', 0, 0, {}, 38),
+    R('Var 2', 'Label Print', 'fail', 2, 4, { ODC: 1, OCR: 2 }, 1, true),
+    R('Var 2', 'Cap Seal', 'fail', 4, 4, { ODC: 2, IC: 1, SA: 1 }, 5, true),
+  ];
+  ROWS.forEach((r, i) => { r.id = i; r.modCount = Object.values(r.mods).reduce((a, b) => a + b, 0); });
+
+  const STATUS = [
+    { k: 'idle', label: 'Not Started', dot: 'var(--idle)' },
+    { k: 'prog', label: 'In Progress', dot: 'var(--err)' },
+    { k: 'done', label: 'Completed', dot: 'var(--ok)' },
+    { k: 'fail', label: 'Failed', dot: '#7f1d1d' },
+  ];
+  const stepKey = r => r.status === 'prog' ? 'prog:' + r.step : null;
+  const progStepsAll = [...new Set(ROWS.filter(r => r.status === 'prog').map(r => r.step))].sort();
+  const variantsAll = [...new Set(ROWS.map(r => r.variant))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+  const S = {
+    q: '',
+    variants: new Set(),
+    statuses: new Set(),      // 'idle' | 'prog' | 'done' | 'fail'
+    steps: new Set(),         // step numbers, only while 'prog' is partially chosen
+    modules: new Set(),       // module names or '__none'
+    modMode: 'any',
+    sort: { key: null, dir: 1 },
+    open: null,
+  };
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const hl = s => {
+    if (!S.q) return esc(s);
+    const i = s.toLowerCase().indexOf(S.q.toLowerCase());
+    if (i < 0) return esc(s);
+    return esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + S.q.length)) + '</mark>' + esc(s.slice(i + S.q.length));
+  };
+  const cmpText = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
+  // ---- filtering (each facet can be skipped to compute counts for its own options)
+  const pass = {
+    q: r => !S.q || (r.variant + ' ' + r.capture).toLowerCase().includes(S.q.toLowerCase()),
+    variant: r => !S.variants.size || S.variants.has(r.variant),
+    status: r => {
+      if (!S.statuses.size && !S.steps.size) return true;
+      if (S.statuses.has(r.status)) return true;
+      return r.status === 'prog' && S.steps.has(r.step);
+    },
+    module: r => {
+      if (!S.modules.size) return true;
+      const names = Object.keys(r.mods);
+      const wantNone = S.modules.has('__none');
+      const picked = [...S.modules].filter(m => m !== '__none');
+      if (wantNone && !names.length) return true;
+      if (!picked.length) return false;
+      return S.modMode === 'all' ? picked.every(m => names.includes(m)) : picked.some(m => names.includes(m));
+    },
+  };
+  const filtered = (skip) => ROWS.filter(r => Object.entries(pass).every(([k, f]) => k === skip || f(r)));
+
+  // Least finished first: failed, not started, then by step, then complete.
+  const progress = r => r.status === 'fail' ? -1 : r.status === 'idle' ? 0 : r.status === 'done' ? 2 : r.step / r.total;
+  const SORTS = {
+    variant: (a, b) => cmpText(a.variant, b.variant) || cmpText(a.capture, b.capture),
+    capture: (a, b) => cmpText(a.capture, b.capture),
+    status: (a, b) => progress(a) - progress(b),
+    modules: (a, b) => a.modCount - b.modCount,
+    updated: (a, b) => a.days - b.days,
+  };
+  const sorted = rows => {
+    const k = S.sort.key;
+    if (!k) return rows.slice().sort(SORTS.variant);
+    return rows.slice().sort((a, b) => S.sort.dir * SORTS[k](a, b) || SORTS.variant(a, b));
+  };
+
+  // ---- dropdowns
+  const chev = '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
+  const trig = (id, label, n) => `<button class="trig" type="button" aria-expanded="${S.open === id}" data-toggle="${id}">${label} ${n !== null ? `<span class="badge ${n ? 'on' : ''}">${n}</span>` : ''}${chev}</button>`;
+  const opt = (attrs, checked, label, n, cls = '') =>
+    `<label class="opt ${cls} ${n === 0 && !checked ? 'zero' : ''}"><input type="checkbox" ${attrs} ${checked ? 'checked' : ''}><span class="lbl">${label}</span>${n === null ? '' : `<span class="n">${n}</span>`}</label>`;
+
+  function renderVariant() {
+    const base = filtered('variant');
+    const pop = S.open !== 'variant' ? '' : `<div class="pop" role="dialog" aria-label="Variant Name filter">` +
+      variantsAll.map(v => opt(`data-variant="${esc(v)}"`, S.variants.has(v), esc(v), base.filter(r => r.variant === v).length)).join('') +
+      `<div class="foot"><button class="link" data-clear="variant">Clear</button></div></div>`;
+    return trig('variant', 'Variant Name', S.variants.size) + pop;
+  }
+
+  function renderStatus() {
+    const base = filtered('status');
+    const n = k => base.filter(r => r.status === k).length;
+    const progAll = S.statuses.has('prog');
+    const pop = S.open !== 'status' ? '' : `<div class="pop" role="dialog" aria-label="Reco Status filter">` +
+      STATUS.map(s => {
+        let html = opt(`data-status="${s.k}"`, S.statuses.has(s.k), s.label, n(s.k));
+        if (s.k === 'prog') html += progStepsAll.map(st => {
+          return opt(`data-step="${st}"`, progAll || S.steps.has(st), `Step ${st}: ${STEPS[st] || 'Step ' + st}`, base.filter(r => r.status === 'prog' && r.step === st).length, 'sub');
+        }).join('');
+        return html;
+      }).join('') +
+      `<div class="foot"><button class="link" data-clear="status">Clear</button></div></div>`;
+    return trig('status', 'Reco Status', S.statuses.size + S.steps.size) + pop;
+  }
+
+  function renderModule() {
+    const base = filtered('module');
+    const pop = S.open !== 'module' ? '' : `<div class="pop" role="dialog" aria-label="Module filter">` +
+      `<div class="head">Show recipes that have</div>` +
+      `<div class="seg"><button type="button" data-mode="any" class="${S.modMode === 'any' ? 'on' : ''}">Any selected</button><button type="button" data-mode="all" class="${S.modMode === 'all' ? 'on' : ''}">All selected</button></div>` +
+      MODULE_ORDER.map(m => opt(`data-module="${esc(m)}"`, S.modules.has(m), esc(m), base.filter(r => r.mods[m]).length)).join('') +
+      `<hr>` + opt('data-module="__none"', S.modules.has('__none'), 'No modules added yet', base.filter(r => !r.modCount).length) +
+      `<div class="foot"><button class="link" data-clear="module">Clear</button></div></div>`;
+    return trig('module', 'Modules', S.modules.size) + pop;
+  }
+
+  const SORT_OPTS = [
+    ['', 1, 'Default (variant, capture)'],
+    ['variant', 1, 'Variant name A–Z'], ['variant', -1, 'Variant name Z–A'],
+    ['capture', 1, 'Capture A–Z'], ['capture', -1, 'Capture Z–A'],
+    ['status', 1, 'Least finished first'], ['status', -1, 'Most finished first'],
+    ['modules', -1, 'Most modules first'], ['modules', 1, 'Fewest modules first'],
+    ['updated', 1, 'Recently modified'],
+  ];
+  function renderSort() {
+    const cur = SORT_OPTS.find(o => (o[0] || null) === S.sort.key && (o[0] === '' || o[1] === S.sort.dir));
+    const pop = S.open !== 'sort' ? '' : `<div class="pop" role="dialog" aria-label="Sort">` +
+      SORT_OPTS.map(([k, d, l]) => `<label class="opt"><input type="radio" name="sort" data-sort="${k}" data-dir="${d}" ${cur && cur[2] === l ? 'checked' : ''}><span class="lbl">${l}</span>${k === 'updated' ? '<span class="n">needs API</span>' : ''}</label>`).join('') + `</div>`;
+    return trig('sort', 'Sort: ' + (cur ? cur[2] : 'Default'), null) + pop;
+  }
+
+  // ---- summary chips (they drive the Reco Status filter)
+  function renderSummary() {
+    const base = filtered('status');
+    const onlyOne = S.statuses.size === 1 && !S.steps.size ? [...S.statuses][0] : null;
+    const none = !S.statuses.size && !S.steps.size;
+    document.getElementById('summary').innerHTML =
+      `<button class="sc ${none ? 'on' : ''}" data-summary=""><span>All</span><span class="n">${base.length}</span></button>` +
+      STATUS.map(s => `<button class="sc ${onlyOne === s.k ? 'on' : ''}" data-summary="${s.k}"><span class="dot" style="background:${s.dot}"></span><span>${s.label}</span><span class="n">${base.filter(r => r.status === s.k).length}</span></button>`).join('');
+  }
+
+  // ---- active filter chips
+  function renderActive(shown) {
+    const chips = [];
+    if (S.q) chips.push(['Search', `“${esc(S.q)}”`, 'q', '']);
+    S.variants.forEach(v => chips.push(['Variant', esc(v), 'variant', v]));
+    S.statuses.forEach(s => chips.push(['Status', STATUS.find(x => x.k === s).label, 'status', s]));
+    S.steps.forEach(st => chips.push(['Status', `In Progress · ${STEPS[st] || 'Step ' + st}`, 'step', st]));
+    S.modules.forEach(m => chips.push([`Module${S.modules.size > 1 ? ' (' + S.modMode + ')' : ''}`, m === '__none' ? 'No modules' : esc(m), 'module', m]));
+    document.getElementById('active').innerHTML =
+      `<span class="count">Showing <b>${shown}</b> of ${ROWS.length} recipes</span>` +
+      chips.map(([k, v, t, val]) => `<span class="ch"><b>${k}:</b> ${v}<button type="button" aria-label="Remove ${k} ${esc(String(val))}" data-rm="${t}" data-val="${esc(String(val))}">×</button></span>`).join('') +
+      (chips.length ? `<button class="link" data-clear="all">Clear all</button>` : '');
+  }
+
+  // ---- table
+  const COLS = [
+    ['variant', 'Variant Name'],
+    ['capture', 'Capture'],
+    ['status', 'Configuration Status'],
+    ['modules', 'Module Info'],
+    [null, 'Actions'],
+  ];
+  function renderHead() {
+    document.getElementById('thead').innerHTML = COLS.map(([k, l]) => {
+      if (!k) return `<th><span class="h">${l}</span></th>`;
+      const sort = S.sort.key === k ? (S.sort.dir === 1 ? 'ascending' : 'descending') : 'none';
+      return `<th aria-sort="${sort}"><button type="button" class="h" data-col="${k}" title="Sort by ${l}">${l}<span class="arr"><i class="up"></i><i class="dn"></i></span></button></th>`;
+    }).join('');
+  }
+
+  const cam = '<svg class="cam" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7l2-3h4l2 3"/><circle cx="12" cy="13.5" r="3"/></svg>';
+  function statusCell(r) {
+    if (r.status === 'done') return `<a class="st done" href="#" data-noop>Complete</a>`;
+    if (r.status === 'idle') return `<span class="pill idle">Not Started</span>`;
+    if (r.status === 'fail') return `<span class="pill fail">Failed at Step ${r.step}/${r.total}: ${STEPS[r.step] || ''}</span>`;
+    return `<a class="st prog" href="#" data-noop>At Step ${r.step}/${r.total}: ${STEPS[r.step] || ''}</a>`;
+  }
+  function modulesCell(r) {
+    const names = MODULE_ORDER.filter(m => r.mods[m]);
+    if (!names.length) return `<td class="mods"><span class="none">No modules added yet!</span></td>`;
+    const full = names.map(m => `${m} (${r.mods[m]})`).join(', ');
+    const html = names.map(m => `<span class="${S.modules.has(m) ? 'hit' : ''}">${esc(m)} (${r.mods[m]})</span>`).join(', ');
+    return `<td class="mods" title="${esc(full)}">${html}</td>`;
+  }
+  function renderBody(rows) {
+    document.getElementById('tbody').innerHTML = rows.length ? rows.map(r => `<tr>
+      <td>${hl(r.variant)}</td>
+      <td class="cap">${hl(r.capture)}${r.example ? '<span class="ex">example</span>' : ''}${cam}</td>
+      <td>${statusCell(r)}</td>
+      ${modulesCell(r)}
+      <td class="act">⋮</td>
+    </tr>`).join('') : `<tr class="empty"><td colspan="5">No recipes match these filters. <button class="link" data-clear="all">Clear all filters</button></td></tr>`;
+  }
+
+  function render() {
+    document.getElementById('dd-variant').innerHTML = renderVariant();
+    document.getElementById('dd-status').innerHTML = renderStatus();
+    document.getElementById('dd-module').innerHTML = renderModule();
+    document.getElementById('dd-sort').innerHTML = renderSort();
+    ['variant', 'status', 'module', 'sort'].forEach(id => document.getElementById('dd-' + id).classList.toggle('open', S.open === id));
+    const rows = sorted(filtered());
+    renderSummary();
+    renderActive(rows.length);
+    renderHead();
+    renderBody(rows);
+    document.getElementById('qx').hidden = !S.q;
+    try { localStorage.setItem('recipe-filters', JSON.stringify({ q: S.q, variants: [...S.variants], statuses: [...S.statuses], steps: [...S.steps], modules: [...S.modules], modMode: S.modMode, sort: S.sort })); } catch (e) {}
+  }
+
+  function clear(what) {
+    if (what === 'variant' || what === 'all') S.variants.clear();
+    if (what === 'status' || what === 'all') { S.statuses.clear(); S.steps.clear(); }
+    if (what === 'module' || what === 'all') S.modules.clear();
+    if (what === 'all') { S.q = ''; document.getElementById('q').value = ''; }
+  }
+
+  // ---- events
+  document.addEventListener('click', e => {
+    const t = e.target;
+    if (t.closest('[data-noop]')) { e.preventDefault(); return; }
+    const tg = t.closest('[data-toggle]');
+    if (tg) { S.open = S.open === tg.dataset.toggle ? null : tg.dataset.toggle; render(); return; }
+    const cl = t.closest('[data-clear]');
+    if (cl) { clear(cl.dataset.clear); render(); return; }
+    const md = t.closest('[data-mode]');
+    if (md) { S.modMode = md.dataset.mode; render(); return; }
+    const sm = t.closest('[data-summary]');
+    if (sm) { S.statuses.clear(); S.steps.clear(); if (sm.dataset.summary) S.statuses.add(sm.dataset.summary); S.open = null; render(); return; }
+    const col = t.closest('[data-col]');
+    if (col) {
+      const k = col.dataset.col;
+      if (S.sort.key !== k) S.sort = { key: k, dir: 1 };
+      else if (S.sort.dir === 1) S.sort.dir = -1;
+      else S.sort = { key: null, dir: 1 };
+      render(); return;
+    }
+    const rm = t.closest('[data-rm]');
+    if (rm) {
+      const { rm: kind, val } = rm.dataset;
+      if (kind === 'q') { S.q = ''; document.getElementById('q').value = ''; }
+      if (kind === 'variant') S.variants.delete(val);
+      if (kind === 'status') S.statuses.delete(val);
+      if (kind === 'step') S.steps.delete(+val);
+      if (kind === 'module') S.modules.delete(val);
+      render(); return;
+    }
+    if (S.open && !t.closest('.dd')) { S.open = null; render(); }
+  });
+
+  document.addEventListener('change', e => {
+    const t = e.target, d = t.dataset;
+    const toggle = (set, v) => t.checked ? set.add(v) : set.delete(v);
+    if ('variant' in d) toggle(S.variants, d.variant);
+    if ('module' in d) toggle(S.modules, d.module);
+    if ('status' in d) { toggle(S.statuses, d.status); if (d.status === 'prog') S.steps.clear(); }
+    if ('step' in d) {
+      const st = +d.step;
+      if (S.statuses.has('prog')) {
+        // Unticking one step under a fully ticked "In Progress" keeps the others.
+        S.statuses.delete('prog');
+        progStepsAll.forEach(x => x !== st && S.steps.add(x));
+      } else toggle(S.steps, st);
+      if (progStepsAll.every(x => S.steps.has(x))) { S.steps.clear(); S.statuses.add('prog'); }
+    }
+    if ('sort' in d) { S.sort = d.sort ? { key: d.sort, dir: +d.dir } : { key: null, dir: 1 }; S.open = null; }
+    render();
+  });
+
+  const q = document.getElementById('q');
+  q.addEventListener('input', () => { S.q = q.value.trim(); render(); });
+  document.getElementById('qx').addEventListener('click', () => { S.q = ''; q.value = ''; render(); q.focus(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.open) { S.open = null; render(); } });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem('recipe-filters') || 'null');
+    if (saved) {
+      S.q = saved.q || ''; q.value = S.q;
+      S.variants = new Set(saved.variants); S.statuses = new Set(saved.statuses); S.steps = new Set(saved.steps);
+      S.modules = new Set(saved.modules); S.modMode = saved.modMode || 'any'; S.sort = saved.sort || S.sort;
+    }
+  } catch (e) {}
+  render();
+})();
+</script>
