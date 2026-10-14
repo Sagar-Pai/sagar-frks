@@ -189,7 +189,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     { k: 'done', label: 'Completed' },
   ];
   const stepKey = r => r.status === 'prog' ? 'prog:' + r.step : null;
-  const progStepsAll = Object.keys(STEPS).map(Number);
+  // Steps offered under In Progress in the Config Status filter.
+  const FILTER_STEPS = [1, 2];
   const variantsAll = [...new Set(ROWS.map(r => r.variant))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
   const S = {
@@ -263,12 +264,11 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   function renderStatus() {
     const base = filtered('status');
     const n = k => base.filter(r => r.status === k).length;
-    const progAll = S.statuses.has('prog');
     const pop = S.open !== 'status' ? '' : `<div class="pop" role="dialog" aria-label="Config Status filter">` +
       STATUS.map(s => {
         let html = opt(`data-status="${s.k}"`, S.statuses.has(s.k), s.label, n(s.k));
-        if (s.k === 'prog') html += progStepsAll.map(st => {
-          return opt(`data-step="${st}"`, progAll || S.steps.has(st), `Step ${st}: ${STEPS[st] || 'Step ' + st}`, base.filter(r => r.status === 'prog' && r.step === st).length, 'sub');
+        if (s.k === 'prog') html += FILTER_STEPS.map(st => {
+          return opt(`data-step="${st}"`, S.steps.has(st), `Step ${st}: ${STEPS[st] || 'Step ' + st}`, base.filter(r => r.status === 'prog' && r.step === st).length, 'sub');
         }).join('');
         return html;
       }).join('') +
@@ -394,12 +394,9 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     if ('status' in d) { toggle(S.statuses, d.status); if (d.status === 'prog') S.steps.clear(); }
     if ('step' in d) {
       const st = +d.step;
-      if (S.statuses.has('prog')) {
-        // Unticking one step under a fully ticked "In Progress" keeps the others.
-        S.statuses.delete('prog');
-        progStepsAll.forEach(x => x !== st && S.steps.add(x));
-      } else toggle(S.steps, st);
-      if (progStepsAll.every(x => S.steps.has(x))) { S.steps.clear(); S.statuses.add('prog'); }
+      // Picking a step narrows a ticked "In Progress" down to that step.
+      S.statuses.delete('prog');
+      toggle(S.steps, st);
     }
     render();
   });
@@ -413,7 +410,7 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     const saved = JSON.parse(localStorage.getItem('recipe-filters') || 'null');
     if (saved) {
       S.q = saved.q || ''; q.value = S.q;
-      S.variants = new Set(saved.variants); S.statuses = new Set((saved.statuses || []).filter(s => STATUS.some(x => x.k === s))); S.steps = new Set(saved.steps);
+      S.variants = new Set(saved.variants); S.statuses = new Set((saved.statuses || []).filter(s => STATUS.some(x => x.k === s))); S.steps = new Set((saved.steps || []).filter(st => FILTER_STEPS.includes(st)));
       S.modules = new Set(saved.modules); S.sort = saved.sort && (!saved.sort.key || SORTS[saved.sort.key]) ? saved.sort : S.sort;
     }
   } catch (e) {}
