@@ -2,7 +2,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: a slim prototype bar, then the Recipe Management screen (breadcrumb, filter bar, summary chips, table) as in app.frinks.ai. Single light theme to match the app. */
+/* Layout: a slim prototype bar, then the Recipe Management screen (breadcrumb, filter bar, active filters, table) as in app.frinks.ai. Single light theme to match the app. */
 :root {
   color-scheme: light;
   --primary: #ff4301;
@@ -74,12 +74,6 @@ button:focus-visible, input:focus-visible, th button:focus-visible { outline: 2p
 .pop .foot { display: flex; justify-content: space-between; padding: 6px 16px 2px; }
 .link { border: 0; background: none; color: var(--primary-ink); font-size: 12px; padding: 0; }
 
-/* summary chips */
-.summary { display: flex; flex-wrap: wrap; gap: 8px; }
-.sc { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
-.sc .n { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
-.sc .dot { width: 8px; height: 8px; border-radius: 50%; }
-.sc.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
 
 /* active filters */
 .active { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-height: 26px; }
@@ -150,7 +144,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
       <div class="actions"><button class="btn" type="button">Add Recipe</button><button class="btn" type="button">Edit Table</button></div>
     </div>
 
-    <div class="summary" id="summary"></div>
     <div class="active" id="active"></div>
 
     <div class="tbl-wrap">
@@ -192,8 +185,8 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
   ROWS.forEach((r, i) => { r.id = i; r.modCount = Object.values(r.mods).reduce((a, b) => a + b, 0); });
 
   const STATUS = [
-    { k: 'prog', label: 'In Progress', dot: 'var(--err)' },
-    { k: 'done', label: 'Completed', dot: 'var(--ok)' },
+    { k: 'prog', label: 'In Progress' },
+    { k: 'done', label: 'Completed' },
   ];
   const stepKey = r => r.status === 'prog' ? 'prog:' + r.step : null;
   const progStepsAll = Object.keys(STEPS).map(Number);
@@ -292,17 +285,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     return trig('module', 'Modules', S.modules.size) + pop;
   }
 
-
-  // ---- summary chips (they drive the Config Status filter)
-  function renderSummary() {
-    const base = filtered('status');
-    const onlyOne = S.statuses.size === 1 && !S.steps.size ? [...S.statuses][0] : null;
-    const none = !S.statuses.size && !S.steps.size;
-    document.getElementById('summary').innerHTML =
-      `<button class="sc ${none ? 'on' : ''}" data-summary=""><span>All</span><span class="n">${base.length}</span></button>` +
-      STATUS.map(s => `<button class="sc ${onlyOne === s.k ? 'on' : ''}" data-summary="${s.k}"><span class="dot" style="background:${s.dot}"></span><span>${s.label}</span><span class="n">${base.filter(r => r.status === s.k).length}</span></button>`).join('');
-  }
-
   // ---- active filter chips
   function renderActive(shown) {
     const chips = [];
@@ -361,7 +343,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     document.getElementById('dd-module').innerHTML = renderModule();
     ['variant', 'status', 'module'].forEach(id => document.getElementById('dd-' + id).classList.toggle('open', S.open === id));
     const rows = sorted(filtered());
-    renderSummary();
     renderActive(rows.length);
     renderHead();
     renderBody(rows);
@@ -384,15 +365,6 @@ mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1
     if (tg) { S.open = S.open === tg.dataset.toggle ? null : tg.dataset.toggle; render(); return; }
     const cl = t.closest('[data-clear]');
     if (cl) { clear(cl.dataset.clear); render(); return; }
-    const sm = t.closest('[data-summary]');
-    if (sm) {
-      // Clicking the chip that is already the only active one turns it off.
-      const k = sm.dataset.summary;
-      const wasOn = k && !S.steps.size && S.statuses.size === 1 && S.statuses.has(k);
-      S.statuses.clear(); S.steps.clear();
-      if (k && !wasOn) S.statuses.add(k);
-      S.open = null; render(); return;
-    }
     const col = t.closest('[data-col]');
     if (col) {
       const k = col.dataset.col;
